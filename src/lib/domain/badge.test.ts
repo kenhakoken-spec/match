@@ -7,6 +7,7 @@
 import { describe, it, expect } from "vitest";
 import {
   qualifiesForPremium,
+  qualifiesForPremiumByOverall,
   badgeCriteriaSnapshot,
   premiumRemaining,
   PREMIUM_CRITERIA,
@@ -119,6 +120,47 @@ describe("qualifiesForPremium — 不正値は安全側(false)", () => {
     expect(
       qualifiesForPremium({ ...PASS, attendedCount: -Infinity })
     ).toBe(false);
+  });
+});
+
+describe("qualifiesForPremiumByOverall — S8 総合平均(overall)で判定", () => {
+  it("overall>=4.0 かつ count>=5 かつ attended>=2 → true（境界ちょうど）", () => {
+    expect(qualifiesForPremiumByOverall(4.0, 5, 2)).toBe(true);
+  });
+
+  it("overall 3.9 (<4.0) → false", () => {
+    expect(qualifiesForPremiumByOverall(3.9, 5, 2)).toBe(false);
+  });
+
+  it("count 4 (<5) → false", () => {
+    expect(qualifiesForPremiumByOverall(4.5, 4, 2)).toBe(false);
+  });
+
+  it("attended 1 (<2) → false", () => {
+    expect(qualifiesForPremiumByOverall(4.5, 5, 1)).toBe(false);
+  });
+
+  it("qualifiesForPremium(ratingAvg=overall,...) と完全一致（薄いラッパ）", () => {
+    const cases: Array<[number, number, number]> = [
+      [4.0, 5, 2],
+      [3.99, 5, 2],
+      [4.2, 6, 3],
+      [5.0, 4, 2],
+      [4.0, 5, 1],
+    ];
+    for (const [overall, count, attended] of cases) {
+      expect(qualifiesForPremiumByOverall(overall, count, attended)).toBe(
+        qualifiesForPremium({
+          ratingAvg: overall,
+          ratingCount: count,
+          attendedCount: attended,
+        })
+      );
+    }
+  });
+
+  it("不正値(NaN overall)は安全側 false", () => {
+    expect(qualifiesForPremiumByOverall(NaN, 5, 2)).toBe(false);
   });
 });
 

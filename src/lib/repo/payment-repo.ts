@@ -18,8 +18,9 @@ import "server-only";
 import crypto from "node:crypto";
 import { getRepo } from "@/lib/repo";
 import type { PaymentStatusValue } from "@/lib/payment-types";
+import type { PaymentKind } from "@/lib/types";
 
-// --- Payment エンティティ（schema.prisma の Payment S4 サブセット）-----------
+// --- Payment エンティティ（schema.prisma の Payment S4/S8 サブセット）---------
 export interface PaymentEntity {
   id: string;
   userId: string;
@@ -27,6 +28,12 @@ export interface PaymentEntity {
   amount: number; // 最小通貨単位(円)。初回無料は amount=0 + isFirstFree=true。
   currency: string; // "JPY"
   isFirstFree: boolean;
+  /**
+   * S8: 決済種別（schema Payment.type と一致）。参加費 participation /
+   * ドタキャン罰金 no_show_penalty。既定 participation（既存 S4 決済は全て参加費）。
+   * 後方互換: 既存の create 呼び出しは type 未指定 → participation に倒れる。
+   */
+  type: PaymentKind;
   status: PaymentStatusValue;
   provider: string; // "stripe"
   stripePaymentIntentId: string | null; // "pi_..."（モックは "pi_mock_..."）
@@ -44,6 +51,8 @@ export interface CreatePaymentInput {
   amount: number;
   isFirstFree: boolean;
   status: PaymentStatusValue;
+  /** S8: 決済種別。未指定は participation（後方互換）。no-show 罰金は no_show_penalty。 */
+  type?: PaymentKind;
   stripePaymentIntentId?: string | null;
   note?: string | null;
 }
@@ -56,6 +65,17 @@ export interface PaymentsRepo {
   listByUser(userId: string): Promise<PaymentEntity[]>;
   /** ある枠×ユーザーの決済（二重課金防止・冪等のため）。 */
   findBySlotAndUser(slotId: string, userId: string): Promise<PaymentEntity | null>;
+  /**
+   * S8: ある枠×ユーザー×種別の決済（no-show 罰金の冪等のため）。
+   * schema は @@unique([slotId,userId]) だが、参加費(participation)と
+   * 罰金(no_show_penalty)を種別で区別して引けるようにする。in-memory は
+   * 種別で絞った最初の一致を返す（同一(slot,ratee,no_show_penalty)の二重課金を防ぐ）。
+   */
+  findBySlotUserAndType(
+    slotId: string,
+    userId: string,
+    type: PaymentKind
+  ): Promise<PaymentEntity | null>;
   create(input: CreatePaymentInput): Promise<PaymentEntity>;
   /** 状態更新（confirm/webhook の succeeded 等）。succeeded のとき paidAt をセット。 */
   setStatus(
@@ -125,6 +145,17 @@ class MemoryPaymentsRepo implements PaymentsRepo {
     return null;
   }
 
+  async findBySlotUserAndType(
+    slotId: string,
+    userId: string,
+    type: PaymentKind
+  ): Promise<PaymentEntity | null> {
+    for (const p of store().payments.values()) {
+      if (p.slotId === slotId && p.userId === userId && p.type === type) return p;
+    }
+    return null;
+  }
+
   async create(input: CreatePaymentInput): Promise<PaymentEntity> {
     const s = store();
     const now = new Date();
@@ -135,6 +166,8 @@ class MemoryPaymentsRepo implements PaymentsRepo {
       amount: input.amount,
       currency: "JPY",
       isFirstFree: input.isFirstFree,
+      // 未指定は participation（既存 S4 決済の後方互換）。
+      type: input.type ?? "participation",
       status: input.status,
       provider: "stripe",
       stripePaymentIntentId: input.stripePaymentIntentId ?? null,
@@ -202,6 +235,9 @@ class PrismaPaymentsRepo implements PaymentsRepo {
     return this.notImplemented();
   }
   async findBySlotAndUser(): Promise<PaymentEntity | null> {
+    return this.notImplemented();
+  }
+  async findBySlotUserAndType(): Promise<PaymentEntity | null> {
     return this.notImplemented();
   }
   async create(): Promise<PaymentEntity> {

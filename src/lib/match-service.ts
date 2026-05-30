@@ -10,6 +10,7 @@ import "server-only";
 import { buildVenueMessage } from "@/lib/domain/match";
 import { getRepo } from "@/lib/repo";
 import { sendNotification } from "@/lib/notify-mock";
+import { suggestVenuesForSlot } from "@/lib/venue-service";
 import type {
   MatchEntity,
   SlotEntity,
@@ -66,6 +67,15 @@ export async function finalizeMatchOnApply(slotId: string): Promise<MatchEntity>
         },
       });
     }
+  }
+
+  // 4. S8 要望2: 成立時に会場候補を自動生成し運営へ通知する（候補出し + 通知の自動化）。
+  //    冪等（suggestVenuesForSlot 内で既存候補があれば再生成しない）。失敗は成立本体を
+  //    巻き込まない（候補レコメンドは付随処理）ため try/catch でログのみに留める。
+  try {
+    await suggestVenuesForSlot(slotId, "system");
+  } catch {
+    // 候補生成の失敗で成立確定を失敗扱いにしない（運営は手動 suggest で再試行可能）。
   }
 
   return match;

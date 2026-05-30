@@ -73,3 +73,24 @@ export function isMockNotifyEnabled(): boolean {
 export function isProduction(): boolean {
   return (process.env.NODE_ENV ?? "development") === "production";
 }
+
+// =============================================================================
+// RELEASE_MODE — リリース前の集客フェーズと本稼働を切り替える全体フラグ
+//   (01_s8_spec.md 要望3)。
+//
+//   waiting : 「リリースをお待ちください」待機画面で全体を覆う（本稼働前）。
+//   open    : 本稼働（既定）。
+//
+// フェイルオープン側を既定にする理由: env の設定漏れ/打ち間違いで本番が誤って
+// 待機画面に固まる（=機会損失）方が、誤って open になるより事業影響が大きい。
+// したがって「明示的に waiting と書いたときだけ waiting」とし、それ以外は open。
+//
+// 重要: 公開プレビューAPI(src/app/api/public/**)は waiting でも閲覧可
+//   （集客のため見せる）。このフラグを参照するのは全体UIゲートのみ
+//   （待機画面は frontend worker 担当）。評価時点の process.env を読む。
+// =============================================================================
+export type ReleaseMode = "waiting" | "open";
+
+export function releaseMode(): ReleaseMode {
+  return process.env.RELEASE_MODE === "waiting" ? "waiting" : "open";
+}

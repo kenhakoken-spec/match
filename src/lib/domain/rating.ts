@@ -41,6 +41,69 @@ export function isRatingScoreValid(score: number): boolean {
   return Number.isInteger(score) && score >= 1 && score <= 5;
 }
 
+// =============================================================================
+// S8 多軸評価（spec 要望4: また会いたい / 会話 / マナー の3軸）。
+// 既存 aggregateRatings（単一 score 用）は **後方互換のため温存** し、3軸集計は
+// 新関数として追加する。総合(overall)= 3軸全スコアの平均（軸平均の平均ではなく、
+// 全数値の単純平均＝各軸が同数なら数学的に等価）。Profile に
+// scoreAgainAvg/scoreTalkAvg/scoreMannerAvg(軸別) と ratingAvg(=overall) を反映する。
+// =============================================================================
+
+/** 多軸評価1件分の3スコア（各1〜5）。 */
+export interface MultiAxisScore {
+  scoreAgain: number;
+  scoreTalk: number;
+  scoreManner: number;
+}
+
+/** 多軸集計の結果。各軸平均 + 総合(overall) + 件数。空配列はすべて 0。 */
+export interface MultiAxisAggregate {
+  /** 「また会いたい」軸の平均（小数1桁）。 */
+  again: number;
+  /** 「会話」軸の平均（小数1桁）。 */
+  talk: number;
+  /** 「マナー」軸の平均（小数1桁）。 */
+  manner: number;
+  /** 総合平均（3軸の全スコアの平均・小数1桁）。優良バッジ判定の入力。 */
+  overall: number;
+  /** 受領した評価件数（=入力配列長。1件につき3軸ぶん）。 */
+  count: number;
+}
+
+/** 小数第1位に四捨五入（aggregateRatings と同じ丸め。浮動小数誤差を避ける）。 */
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+/**
+ * 受領した多軸評価の配列から、軸別平均・総合平均・件数を算出する（純関数）。
+ * - 空配列 → { again:0, talk:0, manner:0, overall:0, count:0 }。
+ * - 各軸平均・総合とも **小数第1位** に四捨五入（aggregateRatings と一貫）。
+ * - overall は「全軸の全スコアの平均」= (Σagain+Σtalk+Σmanner)/(count*3)。
+ *   各評価が3軸そろう前提のため、これは「3軸平均の平均」と数学的に一致する。
+ * 入力スコアの妥当性（1..5整数）は呼び出し側(zod/isRatingScoreValid)で担保する前提。
+ */
+export function aggregateMultiAxis(ratings: MultiAxisScore[]): MultiAxisAggregate {
+  const count = ratings.length;
+  if (count === 0) {
+    return { again: 0, talk: 0, manner: 0, overall: 0, count: 0 };
+  }
+  let sumAgain = 0;
+  let sumTalk = 0;
+  let sumManner = 0;
+  for (const r of ratings) {
+    sumAgain += r.scoreAgain;
+    sumTalk += r.scoreTalk;
+    sumManner += r.scoreManner;
+  }
+  const again = round1(sumAgain / count);
+  const talk = round1(sumTalk / count);
+  const manner = round1(sumManner / count);
+  // 総合は丸め前の生平均から算出（軸平均を丸めてから平均すると誤差が乗るため）。
+  const overall = round1((sumAgain + sumTalk + sumManner) / (count * 3));
+  return { again, talk, manner, overall, count };
+}
+
 /** canRate の入力。すべて呼び出し側（rating-repo / route）がサーバ状態から解決する。 */
 export interface CanRateInput {
   /** rater が「done になった Slot」に accepted で参加していたか。 */

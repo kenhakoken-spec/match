@@ -49,6 +49,22 @@ export interface FeeResult {
 export const DEFAULT_FEE_MALE_JPY = 2000;
 
 /**
+ * ドタキャン(no-show)罰金額(円)。S8 spec 要望5: 当日キャンセル/無断欠席は ¥5,000。
+ * 性別/参加歴に依らず一律。no-show 確定(domain/noshow.isNoShowConfirmed)後に
+ * この額で Payment(type=no_show_penalty) を作成し Stripe 課金する。
+ */
+export const NO_SHOW_PENALTY_JPY = 5000;
+
+/**
+ * ドタキャン罰金額を返す純関数。定数 NO_SHOW_PENALTY_JPY(=5000)を返すだけだが、
+ * 課金フロー側が「関数」で参照できるようにし、将来の可変化(枠別/段階罰金)に備える。
+ * computeFee（参加費）とは別経路。本関数は no-show 確定後の罰金額の単一ソース。
+ */
+export function penaltyAmountJpy(): number {
+  return NO_SHOW_PENALTY_JPY;
+}
+
+/**
  * 「過去の成立参加が 0 回か」= 初回参加か を判定する。
  * 防御的に: 非整数/非有限/負値は「0回ではない」とは断定できないため、
  * 「初回ではない(=過去参加あり)」側に倒すと初回無料を誤って奪う事故になる。

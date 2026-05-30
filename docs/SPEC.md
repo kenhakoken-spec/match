@@ -2,6 +2,7 @@
 
 このドキュメントは殿のレビュー/FB用に、**画面一覧・画面遷移・各種制限（ゲート）・ビジネスルール・仕様**を1枚に集約したものです。
 詳細図は [design/screen-flow.md](design/screen-flow.md)（遷移図）/ [design/wireframes.md](design/wireframes.md)（各画面）を参照。
+**S8追加機能**（未登録プレビュー / AI認証 / 多軸評価 / ドタキャン罰金 / 会場候補）の画面仕様は [SPEC_S8.md](SPEC_S8.md) を参照。
 FBは各セクションの「☐ チェック」「メモ」に書き込んでください。
 
 ---

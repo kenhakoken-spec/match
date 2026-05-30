@@ -25,6 +25,7 @@ import type {
   BadgesRepo,
   MatchesRepo,
   NotificationsRepo,
+  VenueCandidatesRepo,
   UserEntity,
   ProfileEntity,
   IdentityEntity,
@@ -32,12 +33,14 @@ import type {
   ApplicationEntity,
   MatchEntity,
   NotificationLogEntity,
+  VenueCandidateEntity,
   UpsertUserInput,
   UpsertProfileInput,
   SubmitIdentityInput,
   CreateSlotInput,
   ListSlotsFilter,
   CreateApplicationInput,
+  CreateVenueCandidateInput,
   GenderCounts,
   ApplyAtomicResult,
   CancelOwnResult,
@@ -46,7 +49,13 @@ import type {
   MatchEntityStatus,
   NotificationTypeValue,
 } from "./types";
-import type { IdentityStatus, SlotStatus, Gender } from "@/lib/types";
+import type {
+  IdentityStatus,
+  SlotStatus,
+  Gender,
+  IdentityAiVerdict,
+  VenueCandidateStatus,
+} from "@/lib/types";
 
 class PrismaUsersRepo implements UsersRepo {
   async findById(id: string): Promise<UserEntity | null> {
@@ -90,12 +99,16 @@ class PrismaProfilesRepo implements ProfilesRepo {
         birthdate: input.birthdate,
         areaPref: input.areaPref,
         bio: input.bio ?? null,
+        // S8: occupation は任意。未指定は null（新規）。
+        ...(input.occupation !== undefined ? { occupation: input.occupation } : {}),
       },
       update: {
         gender: input.gender,
         birthdate: input.birthdate,
         areaPref: input.areaPref,
         bio: input.bio ?? null,
+        // 未指定は既存値維持（キーごと省く）。
+        ...(input.occupation !== undefined ? { occupation: input.occupation } : {}),
       },
     })) as ProfileEntity;
   }
@@ -121,12 +134,45 @@ class PrismaProfilesRepo implements ProfilesRepo {
       },
     })) as ProfileEntity;
   }
+  // NOTE(実DB未検証): S8 多軸評価の集計を Profile に反映。overall→ratingAvg、軸別→各*Avg。
+  async setMultiAxisSummary(
+    userId: string,
+    summary: {
+      again: number;
+      talk: number;
+      manner: number;
+      overall: number;
+      count: number;
+    }
+  ): Promise<ProfileEntity | null> {
+    return (await prisma.profile.update({
+      where: { userId },
+      data: {
+        ratingAvg: summary.overall,
+        ratingCount: summary.count,
+        scoreAgainAvg: summary.again,
+        scoreTalkAvg: summary.talk,
+        scoreMannerAvg: summary.manner,
+        updatedAt: new Date(),
+      },
+    })) as ProfileEntity;
+  }
   // NOTE(実DB未検証): done 参加の累計を +1（バッジ判定の入力）。原子的インクリメント。
   async incrementAttended(userId: string): Promise<ProfileEntity | null> {
     return (await prisma.profile.update({
       where: { userId },
       data: {
         attendedCount: { increment: 1 },
+        updatedAt: new Date(),
+      },
+    })) as ProfileEntity;
+  }
+  // NOTE(実DB未検証): S8 no-show 確定時に noShowCount を +1。
+  async incrementNoShow(userId: string): Promise<ProfileEntity | null> {
+    return (await prisma.profile.update({
+      where: { userId },
+      data: {
+        noShowCount: { increment: 1 },
         updatedAt: new Date(),
       },
     })) as ProfileEntity;
@@ -201,6 +247,21 @@ class PrismaIdentitiesRepo implements IdentitiesRepo {
         reviewNote: reason,
         blobRef: null,
         imageDeletedAt: now,
+      },
+    })) as IdentityEntity;
+  }
+  // NOTE(実DB未検証): S8 AI一次判定の記録（status は変えない＝判定と承認を分離）。
+  async setAiVerdict(
+    id: string,
+    verdict: IdentityAiVerdict,
+    reason: string
+  ): Promise<IdentityEntity | null> {
+    return (await prisma.identityVerification.update({
+      where: { id },
+      data: {
+        aiVerdict: verdict,
+        aiReason: reason,
+        aiCheckedAt: new Date(),
       },
     })) as IdentityEntity;
   }
@@ -494,6 +555,50 @@ class PrismaNotificationsRepo implements NotificationsRepo {
   }
 }
 
+// =============================================================================
+// S8 — VenueCandidate Prisma 実装(**実DB接続時に検証**)。spec 要望2。
+// schema.prisma の VenueCandidate に 1:1。fitScore 降順(null最後)→createdAt 昇順。
+// =============================================================================
+class PrismaVenueCandidatesRepo implements VenueCandidatesRepo {
+  async listBySlot(slotId: string): Promise<VenueCandidateEntity[]> {
+    // Postgres は NULLS LAST が既定（DESC 時 null が先頭になるのを避けるため
+    // createdAt の昇順も併用）。厳密な null 配置は実DB検証時に nulls 指定を足す。
+    return (await prisma.venueCandidate.findMany({
+      where: { slotId },
+      orderBy: [{ fitScore: "desc" }, { createdAt: "asc" }],
+    })) as VenueCandidateEntity[];
+  }
+  async findById(id: string): Promise<VenueCandidateEntity | null> {
+    return (await prisma.venueCandidate.findUnique({
+      where: { id },
+    })) as VenueCandidateEntity | null;
+  }
+  async create(input: CreateVenueCandidateInput): Promise<VenueCandidateEntity> {
+    return (await prisma.venueCandidate.create({
+      data: {
+        slotId: input.slotId,
+        name: input.name,
+        url: input.url ?? null,
+        tabelogScore: input.tabelogScore ?? null,
+        googleScore: input.googleScore ?? null,
+        fitScore: input.fitScore ?? null,
+        area: input.area,
+        status: "suggested",
+        suggestedBy: input.suggestedBy ?? null,
+      },
+    })) as VenueCandidateEntity;
+  }
+  async setStatus(
+    id: string,
+    status: VenueCandidateStatus
+  ): Promise<VenueCandidateEntity | null> {
+    return (await prisma.venueCandidate.update({
+      where: { id },
+      data: { status },
+    })) as VenueCandidateEntity;
+  }
+}
+
 export class PrismaRepo implements Repo {
   users = new PrismaUsersRepo();
   profiles = new PrismaProfilesRepo();
@@ -503,4 +608,5 @@ export class PrismaRepo implements Repo {
   badges = new PrismaBadgesRepo();
   matches = new PrismaMatchesRepo();
   notifications = new PrismaNotificationsRepo();
+  venueCandidates = new PrismaVenueCandidatesRepo();
 }

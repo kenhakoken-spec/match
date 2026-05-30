@@ -10,6 +10,7 @@ const NAV = [
   { href: "/admin/slots", label: "本人審査" },
   { href: "/admin/matches", label: "成立確認" },
   { href: "/admin/matches", label: "会場入力" },
+  { href: "/admin/venues", label: "会場候補" },
   { href: "/admin/badges", label: "バッジ付与状況" },
   { href: "/admin/slots", label: "ユーザー管理" },
 ];

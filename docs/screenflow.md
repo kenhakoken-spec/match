@@ -62,15 +62,42 @@ flowchart TD
 
 ---
 
+## 1.5 未登録プレビュー導線（S8マーケ：見える→制限→登録）
+
+> S8要望1。**未ログインでも枠一覧・枠詳細まで閲覧可**。参加者は匿名サマリ（職種・年代・★多軸評価・優良バッジ）で「すごさ」を見せ、氏名・写真・LINEは伏せる。応募ボタンは「登録して参加」に変わり登録導線（U-00）へ。
+
+```mermaid
+flowchart LR
+    classDef pub fill:#FBF7F0,stroke:#C2703D,color:#2B2622;
+    classDef screen fill:#FFF,stroke:#8A8175,color:#2B2622;
+    classDef gate fill:#F6E7DC,stroke:#B0463C,color:#2B2622;
+
+    P04["P-04 公開 枠一覧<br/>/explore（認証不要）"]:::pub
+    P05["P-05 公開 枠詳細<br/>/explore/[id]（匿名サマリ）"]:::pub
+    GREG{"🔒 予約は登録が必要<br/>「登録して参加」"}:::gate
+    U00["U-00 LINEログイン → 本登録フロー"]:::screen
+
+    P04 --> P05 --> GREG -->|タップ| U00
+    P04 -.「登録して参加」.-> GREG
+```
+
+待機モード（S8要望3）: `RELEASE_MODE=waiting` のとき、ログイン必須の本編入口は **C-00「リリースをお待ちください」画面（/coming-soon）** に差し替わる。`/explore`（公開プレビュー）と `/admin/*`（運営）は待機の対象外で常時閲覧可。
+
+---
+
 ## 2. 制限（ゲート）早見 — 仕様の肝
 
 | ゲート | 条件 | 通らないと | 該当画面 |
 |--------|------|-----------|----------|
-| 🔒① 本人認証 | 公的身分証→運営承認（18歳以上確認） | **応募不可**。未認証は U-05 の応募ボタンが無効 | U-12/U-13/A-09 |
+| 🔒① 本人認証 | 公的身分証→**AI(Haiku)一次判定→運営承認**（18歳以上確認・AIがOKでも18歳未満は安全弁で却下） | **応募不可**。未認証は U-05 の応募ボタンが無効 | U-12/U-13/A-09 |
 | 🔒② 参加条件 | 性別の空き＋（20代限定なら年齢20-29）＋（優良バッジ限定ならバッジ保有） | 応募不可UI（淡色＋理由・赤エラーにしない） | U-04/U-05 |
 | 🔒③ 決済 | 男性2回目以降は¥2,000／女性・男性初回は無料／不成立は非課金 | 男性2回目以降は未決済だと参加確定しない | U-14 |
+| 🔒④ 予約（プレビュー） | 未登録は閲覧のみ。応募・予約は登録必須 | 「登録して参加」CTAで登録導線へ（S8要望1） | P-04/P-05 |
+| ⚠️ ドタキャン罰金 | 無断欠席を同席者**2名以上**が報告→確定→**¥5,000 自動課金**（1名・自己申告では課金しない） | 評価画面の「来なかった」報告で集計（S8要望5） | U-15→課金 |
 
 > すべて**サーバ側で再判定**（クライアント表示を信用しない）。応募の不可理由コード: `identity_required / profile_required / age_out_of_range / badge_required / gender_full / already_applied / slot_closed`
+>
+> **公開プレビュー（P-04/P-05）のPII方針**: 未認証へ返すのは `PublicSlotDTO`／`PublicMemberDTO` のみ。**氏名・表示名・顔写真・LINE ID・正確な生年月日は含めず**、職種・年代バンド・多軸評価★・優良バッジだけを返す（出口関門 `serializers.ts`）。
 
 ---
 
@@ -110,6 +137,40 @@ flowchart TD
 | ![A-02](screens/a02-admin-slots.png) |
 
 > **A-04 成立確認 / A-05 会場入力＆通知 / A-10 バッジ付与状況** の実画面スクショは未取得。レイアウトは [wireframes.md](design/wireframes.md)（A-04/A-05/A-10）を参照。実装は完了済み。
+
+---
+
+## 3.5 S8 追加画面（実装済み）
+
+> 下表の画面はすべて**実装・ビルド検証済み**（tsc rc0／単体テスト313 passed／本番ビルド green）。実画面スクショは下の「S8 画面ギャラリー」に掲載（本番ビルドをPORT3700で起動し撮影。`U-15′ 多軸評価`のみ、seedに開催完了済みイベントが無いため実データ撮影は保留＝コードと§3.5表で確認）。
+
+| 画面 | ルート | 役割 | 確認観点 |
+|------|--------|------|----------|
+| **P-04 公開 枠一覧** | `/explore`（認証不要） | 未登録でも開催予定の会を一覧。各カードに条件・充足・男性料金。固定フッタに「登録して参加」CTA | 未ログインで表示できる／予約不可で登録誘導 |
+| **P-05 公開 枠詳細** | `/explore/[id]`（認証不要） | 参加予定メンバーを**匿名サマリ**で表示（職種・年代・★多軸評価・優良バッジ）。氏名/写真/LINEは非表示 | PIIが出ていない／「登録して参加」へ |
+| **C-00 リリース待ち** | `/coming-soon` | 「リリースをお待ちください」。`RELEASE_MODE=waiting` 時の本編入口の差し替え先 | 文言・編集的トーン／公開プレビューと運営は対象外 |
+| **U-15′ 多軸 相互評価** | `/ratings/[slotId]` | 同席者ごとに**また会いたい／会話／マナー**を★1-5＋任意コメント＋「来なかった」報告 | 3軸の星入力／no-show報告チェック |
+| **A-06 会場候補** | `/admin/venues` | 成立枠ごとに合コン向きの店候補（食べログ／Google点・fitScoreでソート）。choose（予約名入力）/ reject / 候補生成 | 候補のソート／choose・rejectの動作 |
+
+### S8 画面ギャラリー（実画面・スマホ縦 / adminはPC）
+
+| P-04 公開 枠一覧（未認証で閲覧） | P-05 公開 枠詳細（匿名サマリ＝氏名/写真なし） |
+|---|---|
+| ![P-04](screens/P-04_explore_list.png) | ![P-05](screens/P-05_explore_detail.png) |
+
+| C-00 リリース待ち | A-06 会場候補（admin・食べログ/Google/合コン向き度） |
+|---|---|
+| ![C-00](screens/C-00_coming_soon.png) | ![A-06](screens/A-06_admin_venues.png) |
+
+> **U-15′ 多軸 相互評価（また会いたい／会話／マナー＋「来なかった」報告）** の実画面は、seedに開催完了済みイベントが無く pending 評価が生成されないため未撮影。UIは実装・単体テスト済み（`src/app/ratings/[slotId]/page.tsx`／`src/components/ui/Stars.tsx`：StarInput×3＋MultiAxisSummary）。
+
+実装ファイル（レビュー用）:
+- P-04/P-05: `src/app/(public)/explore/page.tsx`・`src/app/(public)/explore/[id]/page.tsx`／`src/components/public/{PublicSlotCard,PublicMemberCard,RegisterCta}.tsx`／出口関門 `src/lib/serializers.ts`
+- C-00: `src/app/coming-soon/page.tsx`・`src/components/{ComingSoon,ReleaseGate}.tsx`／`src/lib/release.ts`
+- U-15′: `src/app/ratings/[slotId]/page.tsx`・`src/components/ui/Stars.tsx`（StarInput×3＋MultiAxisSummary）／`src/lib/domain/rating.ts`
+- A-06: `src/app/admin/venues/page.tsx`・`src/components/VenueCandidateCard.tsx`／`src/lib/venue-service.ts`
+- ドタキャン罰金: `src/lib/domain/noshow.ts`・`src/lib/noshow-service.ts`・`src/lib/payment-service.ts`（¥5,000・冪等）
+- AI認証: `src/lib/haiku-verify.ts`（MOCK_AI決定的・18歳未満安全弁）
 
 ---
 

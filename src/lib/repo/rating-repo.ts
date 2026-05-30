@@ -21,7 +21,13 @@
 import crypto from "node:crypto";
 import { getRepo } from "@/lib/repo";
 import { isMockDbEnabled } from "@/lib/env";
-import { aggregateRatings, type RatingAggregate } from "@/lib/domain/rating";
+import {
+  aggregateRatings,
+  aggregateMultiAxis,
+  type RatingAggregate,
+  type MultiAxisAggregate,
+  type MultiAxisScore,
+} from "@/lib/domain/rating";
 import type { Gender } from "@/lib/types";
 import type {
   SlotEntity,
@@ -31,32 +37,52 @@ import type {
 } from "@/lib/repo/types";
 
 // -----------------------------------------------------------------------------
-// Rating entity（schema.prisma の Rating に対応する S5 サブセット）
+// Rating entity（schema.prisma の Rating に対応する S5/S8 サブセット）
+// S8: 単一 score → 3軸（scoreAgain/scoreTalk/scoreManner 各1-5）+ noShowReport。
+//   既存 score は **後方互換** で温存し、3軸の総合(overall)の丸めを保持する
+//   （旧 aggregateRatings 経路・既存テストが score を参照しても壊れないため）。
 // -----------------------------------------------------------------------------
 export interface RatingEntity {
   id: string;
   slotId: string;
   raterId: string;
   rateeId: string;
+  /** 後方互換の総合スコア（= 3軸 overall の四捨五入。1..5）。 */
   score: number;
+  /** S8: また会いたい（1..5）。 */
+  scoreAgain: number;
+  /** S8: 会話の盛り上がり（1..5）。 */
+  scoreTalk: number;
+  /** S8: マナー・誠実さ（1..5）。 */
+  scoreManner: number;
+  /** S8: この rater が ratee を「来なかった（no-show）」と報告したか。 */
+  noShowReport: boolean;
   comment: string | null;
   createdAt: Date;
 }
 
-/** 評価作成の入力（score の範囲・サニタイズは呼び出し側で担保済みの前提）。 */
+/** 評価作成の入力（スコア範囲・サニタイズは呼び出し側で担保済みの前提）。 */
 export interface CreateRatingInput {
   slotId: string;
   raterId: string;
   rateeId: string;
+  /** 後方互換の総合（= overall 丸め）。呼び出し側が 3軸から算出して渡す。 */
   score: number;
+  scoreAgain: number;
+  scoreTalk: number;
+  scoreManner: number;
+  /** S8: 「来なかった」報告（既定 false）。 */
+  noShowReport?: boolean;
   comment?: string | null;
 }
 
-/** 評価保存の結果。集計値を同時に返す（Profile 書き込みは統合時に結線）。 */
+/** 評価保存の結果。集計値を同時に返す（Profile 書き込みは service が結線）。 */
 export interface RecordRatingResult {
   rating: RatingEntity;
-  /** 保存後の被評価者(ratee)の最新集計（Profile に反映すべき値）。 */
+  /** 保存後の被評価者(ratee)の最新集計（後方互換の単一スコア集計）。 */
   rateeAggregate: RatingAggregate;
+  /** S8: 保存後の被評価者(ratee)の多軸集計（Profile.setMultiAxisSummary に反映）。 */
+  rateeMultiAxis: MultiAxisAggregate;
 }
 
 function cuid(): string {
@@ -82,6 +108,26 @@ export interface RatingRepo {
   receivedScores(rateeId: string): Promise<number[]>;
   /** 被評価者(ratee)の現在の集計（avg/count）。Profile に書き込むべき値。 */
   getRatingSummary(rateeId: string): Promise<RatingAggregate>;
+  /**
+   * S8: 被評価者(ratee)が受けた全評価の3軸スコア配列。多軸集計に使う。
+   * 各要素は {scoreAgain, scoreTalk, scoreManner}。
+   */
+  receivedMultiAxis(rateeId: string): Promise<MultiAxisScore[]>;
+  /** S8: 被評価者(ratee)の多軸集計（again/talk/manner/overall/count）。 */
+  getMultiAxisSummary(rateeId: string): Promise<MultiAxisAggregate>;
+  /**
+   * S8: ある枠で、対象(rateeId)に「来なかった」と報告した **別人(rater≠ratee)** の
+   * raterId 集合。自己申告（rater===ratee）は除外する。
+   * 参加者限定の集計は呼び出し側(noshow-service)が この集合を参加者で絞って行う。
+   */
+  noShowReporterIds(slotId: string, rateeId: string): Promise<Set<string>>;
+  /**
+   * S8: ある枠で、対象(rateeId)への「来なかった」報告数（自己申告除外）。
+   * = noShowReporterIds(...).size。確定判定(isNoShowConfirmed)の素の入力。
+   */
+  countNoShowReports(slotId: string, rateeId: string): Promise<number>;
+  /** S8: ある枠で no-show 報告が1件以上ある対象(ratee)の userId 集合。バッチ判定用。 */
+  rateesWithNoShowReports(slotId: string): Promise<Set<string>>;
 }
 
 /** recordRating が二重挿入を検知したときに投げる（route で 409 に変換）。 */
@@ -137,23 +183,22 @@ class MemoryRatingRepo implements RatingRepo {
       raterId: input.raterId,
       rateeId: input.rateeId,
       score: input.score,
+      scoreAgain: input.scoreAgain,
+      scoreTalk: input.scoreTalk,
+      scoreManner: input.scoreManner,
+      noShowReport: input.noShowReport ?? false,
       comment: input.comment ?? null,
       createdAt: new Date(),
     };
     s.ratings.set(rating.id, rating);
 
-    // 被評価者の最新集計を算出して返す。
+    // 被評価者の最新集計を算出して返す（後方互換の単一スコア + S8 多軸）。
     const rateeAggregate = await this.getRatingSummary(input.rateeId);
+    const rateeMultiAxis = await this.getMultiAxisSummary(input.rateeId);
 
-    // ★PROFILE-WRITE-HOOK（統合時に開発将軍が結線する点）★ -------------------
-    //   ここで ratee の Profile.ratingAvg / ratingCount を rateeAggregate で更新し、
-    //   さらに badge.md §3 の qualifiesForPremium(...) を評価して premium 付与を行う。
-    //   現状は **集計値を返すのみ**（Profile への副作用なし）。理由: 並行実装の鉄則で
-    //   repo/memory.ts（Profile の正本ストア）を S5 では触らないため。結線方法は
-    //   このファイル末尾の applyRateeAggregateToProfile() のコメントに記載。
-    // -------------------------------------------------------------------------
-
-    return { rating, rateeAggregate };
+    // Profile への反映（ratingAvg/scoreAgainAvg.. の更新）とバッジ判定は service 側で
+    // setMultiAxisSummary + evaluateAndGrantOnRating を呼んで結線する（S8 統合済）。
+    return { rating, rateeAggregate, rateeMultiAxis };
   }
 
   async ratedRateeIds(slotId: string, raterId: string): Promise<Set<string>> {
@@ -175,6 +220,53 @@ class MemoryRatingRepo implements RatingRepo {
   async getRatingSummary(rateeId: string): Promise<RatingAggregate> {
     const scores = await this.receivedScores(rateeId);
     return aggregateRatings(scores);
+  }
+
+  async receivedMultiAxis(rateeId: string): Promise<MultiAxisScore[]> {
+    const out: MultiAxisScore[] = [];
+    for (const r of ratingStore().ratings.values()) {
+      if (r.rateeId === rateeId) {
+        out.push({
+          scoreAgain: r.scoreAgain,
+          scoreTalk: r.scoreTalk,
+          scoreManner: r.scoreManner,
+        });
+      }
+    }
+    return out;
+  }
+
+  async getMultiAxisSummary(rateeId: string): Promise<MultiAxisAggregate> {
+    const ratings = await this.receivedMultiAxis(rateeId);
+    return aggregateMultiAxis(ratings);
+  }
+
+  async noShowReporterIds(slotId: string, rateeId: string): Promise<Set<string>> {
+    const out = new Set<string>();
+    for (const r of ratingStore().ratings.values()) {
+      if (r.slotId !== slotId) continue;
+      if (r.rateeId !== rateeId) continue;
+      if (!r.noShowReport) continue;
+      // 自己申告は除外（来なかったと自分で報告しても罰金確定に数えない）。
+      if (r.raterId === rateeId) continue;
+      out.add(r.raterId);
+    }
+    return out;
+  }
+
+  async countNoShowReports(slotId: string, rateeId: string): Promise<number> {
+    return (await this.noShowReporterIds(slotId, rateeId)).size;
+  }
+
+  async rateesWithNoShowReports(slotId: string): Promise<Set<string>> {
+    const out = new Set<string>();
+    for (const r of ratingStore().ratings.values()) {
+      if (r.slotId !== slotId) continue;
+      if (!r.noShowReport) continue;
+      if (r.raterId === r.rateeId) continue; // 自己申告除外
+      out.add(r.rateeId);
+    }
+    return out;
   }
 }
 
@@ -207,6 +299,10 @@ class PrismaRatingRepo implements RatingRepo {
           raterId: input.raterId,
           rateeId: input.rateeId,
           score: input.score,
+          scoreAgain: input.scoreAgain,
+          scoreTalk: input.scoreTalk,
+          scoreManner: input.scoreManner,
+          noShowReport: input.noShowReport ?? false,
           comment: input.comment ?? null,
         },
       });
@@ -216,6 +312,10 @@ class PrismaRatingRepo implements RatingRepo {
         raterId: row.raterId,
         rateeId: row.rateeId,
         score: row.score,
+        scoreAgain: row.scoreAgain,
+        scoreTalk: row.scoreTalk,
+        scoreManner: row.scoreManner,
+        noShowReport: row.noShowReport,
         comment: row.comment,
         createdAt: row.createdAt,
       };
@@ -232,14 +332,11 @@ class PrismaRatingRepo implements RatingRepo {
     }
 
     const rateeAggregate = await this.getRatingSummary(input.rateeId);
+    const rateeMultiAxis = await this.getMultiAxisSummary(input.rateeId);
 
-    // ★PROFILE-WRITE-HOOK（統合時に開発将軍が結線する点）★ -------------------
-    //   実DB版では prisma.$transaction で Rating 挿入と Profile 集計更新 +
-    //   バッジ判定を1トランザクションにまとめるのが正しい（badge.md §1 ⑤-⑦）。
-    //   現状は集計値を返すのみ。Profile 更新は applyRateeAggregateToProfile() 参照。
-    // -------------------------------------------------------------------------
-
-    return { rating, rateeAggregate };
+    // 実DB版では prisma.$transaction で Rating 挿入と Profile 集計更新 +
+    // バッジ判定/no-show 罰金を1トランザクションにまとめるのが正しい（統合時に検証）。
+    return { rating, rateeAggregate, rateeMultiAxis };
   }
 
   async ratedRateeIds(slotId: string, raterId: string): Promise<Set<string>> {
@@ -263,6 +360,54 @@ class PrismaRatingRepo implements RatingRepo {
   async getRatingSummary(rateeId: string): Promise<RatingAggregate> {
     const scores = await this.receivedScores(rateeId);
     return aggregateRatings(scores);
+  }
+
+  async receivedMultiAxis(rateeId: string): Promise<MultiAxisScore[]> {
+    const { prisma } = await import("@/lib/prisma");
+    const rows = await prisma.rating.findMany({
+      where: { rateeId },
+      select: { scoreAgain: true, scoreTalk: true, scoreManner: true },
+    });
+    return rows.map(
+      (r: { scoreAgain: number; scoreTalk: number; scoreManner: number }) => ({
+        scoreAgain: r.scoreAgain,
+        scoreTalk: r.scoreTalk,
+        scoreManner: r.scoreManner,
+      })
+    );
+  }
+
+  async getMultiAxisSummary(rateeId: string): Promise<MultiAxisAggregate> {
+    const ratings = await this.receivedMultiAxis(rateeId);
+    return aggregateMultiAxis(ratings);
+  }
+
+  async noShowReporterIds(slotId: string, rateeId: string): Promise<Set<string>> {
+    const { prisma } = await import("@/lib/prisma");
+    // 自己申告除外（raterId !== rateeId）。実DB未検証。
+    const rows = await prisma.rating.findMany({
+      where: { slotId, rateeId, noShowReport: true, NOT: { raterId: rateeId } },
+      select: { raterId: true },
+    });
+    return new Set(rows.map((r: { raterId: string }) => r.raterId));
+  }
+
+  async countNoShowReports(slotId: string, rateeId: string): Promise<number> {
+    return (await this.noShowReporterIds(slotId, rateeId)).size;
+  }
+
+  async rateesWithNoShowReports(slotId: string): Promise<Set<string>> {
+    const { prisma } = await import("@/lib/prisma");
+    const rows = await prisma.rating.findMany({
+      where: { slotId, noShowReport: true },
+      select: { raterId: true, rateeId: true },
+    });
+    const out = new Set<string>();
+    for (const r of rows as Array<{ raterId: string; rateeId: string }>) {
+      if (r.raterId === r.rateeId) continue;
+      out.add(r.rateeId);
+    }
+    return out;
   }
 }
 
@@ -415,9 +560,14 @@ export function seedDoneEventForTest(): {
           photoUrl: null,
           bio: null,
           areaPref: ["ebisu"],
+          occupation: null,
           ratingAvg: 0,
           ratingCount: 0,
           attendedCount: 1, // done を1回参加済み（バッジ判定の入力）。
+          scoreAgainAvg: 0,
+          scoreTalkAvg: 0,
+          scoreMannerAvg: 0,
+          noShowCount: 0,
           createdAt: now,
           updatedAt: now,
         });
@@ -457,14 +607,18 @@ export function seedDoneEventForTest(): {
       photoUrl: null,
       bio: null,
       areaPref: ["ebisu"],
+      occupation: null,
       ratingAvg: 0,
       ratingCount: 0,
       attendedCount: 0,
+      scoreAgainAvg: 0,
+      scoreTalkAvg: 0,
+      scoreMannerAvg: 0,
+      noShowCount: 0,
       createdAt: now,
       updatedAt: now,
     });
   }
-
   return {
     doneSlotId: DONE_SLOT_ID,
     memberIds: DONE_MEMBERS.map((m) => m.id),

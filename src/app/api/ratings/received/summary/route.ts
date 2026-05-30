@@ -1,6 +1,8 @@
 // =============================================================================
 // matching-app — GET /api/ratings/received/summary（自分の受領評価サマリ）
-// 契約: api-contract-s5.md §2。{ avg, count }。IDOR: 自分の集計のみ（セッション sub）。
+// 契約: api-contract-s5.md §2 / docs/01_s8_spec.md 要望4。
+//   S8: { again, talk, manner, overall, count } + 後方互換 avg(=overall)。
+//   IDOR: 自分の集計のみ（セッション sub）。
 // =============================================================================
 
 import { handle, jsonOk } from "@/lib/http";

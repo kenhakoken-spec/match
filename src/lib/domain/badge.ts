@@ -70,6 +70,26 @@ export function qualifiesForPremium(input: BadgeInput): boolean {
 }
 
 /**
+ * S8(spec 要望4): 多軸評価の **総合平均(overall)** でバッジ判定する明示版。
+ *
+ * 仕様上「優良バッジ判定は総合平均(>=4.0)で」行う。S8 では Profile.ratingAvg に
+ * 多軸の overall（aggregateMultiAxis の overall）を入れるため、判定式は
+ * qualifiesForPremium と同一でよい。本関数は呼び出し側の意図を「overall で判定する」
+ * と読めるようにする薄いラッパ（境界・防御は qualifiesForPremium に委譲＝二重実装回避）。
+ *
+ * @param overall      多軸の総合平均(0.0〜5.0)。Profile.ratingAvg と等価。
+ * @param ratingCount  受領評価件数。
+ * @param attendedCount done 参加回数。
+ */
+export function qualifiesForPremiumByOverall(
+  overall: number,
+  ratingCount: number,
+  attendedCount: number
+): boolean {
+  return qualifiesForPremium({ ratingAvg: overall, ratingCount, attendedCount });
+}
+
+/**
  * 付与根拠スナップショット。付与時点の数値 + 適用した基準を固定して返す。
  * Badge.criteriaSnapshot(Json) に格納し、後から基準を変えても監査・再現できる。
  *

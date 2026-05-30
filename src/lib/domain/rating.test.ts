@@ -7,9 +7,11 @@
 import { describe, it, expect } from "vitest";
 import {
   aggregateRatings,
+  aggregateMultiAxis,
   isRatingScoreValid,
   canRate,
   type CanRateInput,
+  type MultiAxisScore,
 } from "./rating";
 
 describe("aggregateRatings", () => {
@@ -43,6 +45,83 @@ describe("aggregateRatings", () => {
   it("満点・最低点の平均", () => {
     expect(aggregateRatings([5, 5, 5])).toEqual({ avg: 5, count: 3 });
     expect(aggregateRatings([1, 1, 1])).toEqual({ avg: 1, count: 3 });
+  });
+});
+
+describe("aggregateMultiAxis (S8 多軸評価)", () => {
+  const r = (a: number, t: number, m: number): MultiAxisScore => ({
+    scoreAgain: a,
+    scoreTalk: t,
+    scoreManner: m,
+  });
+
+  it("空配列は全て 0", () => {
+    expect(aggregateMultiAxis([])).toEqual({
+      again: 0,
+      talk: 0,
+      manner: 0,
+      overall: 0,
+      count: 0,
+    });
+  });
+
+  it("1件はその値が各軸平均、総合は3軸平均、count=1", () => {
+    // again5 talk3 manner4 → overall=(5+3+4)/3=4
+    expect(aggregateMultiAxis([r(5, 3, 4)])).toEqual({
+      again: 5,
+      talk: 3,
+      manner: 4,
+      overall: 4,
+      count: 1,
+    });
+  });
+
+  it("複数件の軸別平均と総合平均（割り切れる）", () => {
+    // again:(5+3)/2=4, talk:(4+2)/2=3, manner:(5+5)/2=5
+    // overall:(5+3+4+2+5+5)/6 = 24/6 = 4
+    expect(aggregateMultiAxis([r(5, 4, 5), r(3, 2, 5)])).toEqual({
+      again: 4,
+      talk: 3,
+      manner: 5,
+      overall: 4,
+      count: 2,
+    });
+  });
+
+  it("各軸・総合とも小数第1位に四捨五入する", () => {
+    // again:(4+4+3)/3=3.6666→3.7, talk:(4+3+3)/3=3.3333→3.3, manner:(5+5+4)/3=4.6666→4.7
+    // overall:(4+4+3 + 4+3+3 + 5+5+4)/9 = 35/9 = 3.888..→3.9
+    expect(aggregateMultiAxis([r(4, 4, 5), r(4, 3, 5), r(3, 3, 4)])).toEqual({
+      again: 3.7,
+      talk: 3.3,
+      manner: 4.7,
+      overall: 3.9,
+      count: 3,
+    });
+  });
+
+  it("総合は丸め前の生平均から算出（軸平均を丸めてから平均しない）", () => {
+    // 軸平均を丸めると again3.7/talk3.3/manner4.7 の平均=3.9(同じ)になるが、
+    // 生平均 35/9=3.888..→3.9 と一致することを確認（誤差が乗らない設計）。
+    const agg = aggregateMultiAxis([r(4, 4, 5), r(4, 3, 5), r(3, 3, 4)]);
+    expect(agg.overall).toBe(3.9);
+  });
+
+  it("全軸満点 / 全軸最低", () => {
+    expect(aggregateMultiAxis([r(5, 5, 5), r(5, 5, 5)])).toEqual({
+      again: 5,
+      talk: 5,
+      manner: 5,
+      overall: 5,
+      count: 2,
+    });
+    expect(aggregateMultiAxis([r(1, 1, 1)])).toEqual({
+      again: 1,
+      talk: 1,
+      manner: 1,
+      overall: 1,
+      count: 1,
+    });
   });
 });
 

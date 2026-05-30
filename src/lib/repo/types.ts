@@ -16,6 +16,9 @@ import type {
   IdDocType,
   SlotStatus,
   ApplicationStatus,
+  Occupation,
+  IdentityAiVerdict,
+  VenueCandidateStatus,
 } from "@/lib/types";
 
 /** 成立(Match)の状態。schema.prisma の MatchStatus と一致。 */
@@ -53,9 +56,18 @@ export interface ProfileEntity {
   photoUrl: string | null;
   bio: string | null;
   areaPref: Area[];
+  /** S8: 職種（表示・プレビュー用。未設定は null）。 */
+  occupation: Occupation | null;
+  /** 総合平均(=多軸 overall)。後方互換のためフィールド名は ratingAvg のまま。 */
   ratingAvg: number;
   ratingCount: number;
   attendedCount: number;
+  /** S8: 多軸評価の軸別平均。 */
+  scoreAgainAvg: number;
+  scoreTalkAvg: number;
+  scoreMannerAvg: number;
+  /** S8: 確定した no-show 回数。 */
+  noShowCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -71,6 +83,10 @@ export interface IdentityEntity {
   reviewedAt: Date | null;
   reviewNote: string | null;
   imageDeletedAt: Date | null;
+  /** S8: AI一次判定（Haiku）。未判定は null。 */
+  aiVerdict: IdentityAiVerdict | null;
+  aiReason: string | null;
+  aiCheckedAt: Date | null;
   submittedAt: Date;
   updatedAt: Date;
 }
@@ -142,6 +158,26 @@ export interface NotificationLogEntity {
   createdAt: Date;
 }
 
+// --- S8 entity (VenueCandidate). schema.prisma の VenueCandidate に対応。 ---
+
+/** 会場候補（成立枠に対する合コン向き店候補。運営が選んで予約）。 */
+export interface VenueCandidateEntity {
+  id: string;
+  slotId: string;
+  name: string;
+  url: string | null;
+  tabelogScore: number | null;
+  googleScore: number | null;
+  /** 合コン向き度（ソートの主キー）。 */
+  fitScore: number | null;
+  area: Area;
+  status: VenueCandidateStatus;
+  /** 追加主体（admin userId / "system"=AI）。監査用。 */
+  suggestedBy: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // --- input shapes ---
 export interface UpsertUserInput {
   lineUserId: string;
@@ -155,6 +191,8 @@ export interface UpsertProfileInput {
   birthdate: Date;
   areaPref: Area[];
   bio?: string | null;
+  /** S8: 職種（任意）。未指定は既存値維持 / 新規は null。 */
+  occupation?: Occupation | null;
 }
 
 export interface SubmitIdentityInput {
@@ -238,8 +276,25 @@ export interface ProfilesRepo {
     userId: string,
     summary: { avg: number; count: number }
   ): Promise<ProfileEntity | null>;
+  /**
+   * S8: 多軸評価の集計を Profile に反映（3軸APIの評価確定時）。
+   * overall を ratingAvg に、軸別平均を scoreAgainAvg/scoreTalkAvg/scoreMannerAvg に書く。
+   * 既存 setRatingSummary（単一スコア）と併存（後方互換）。存在しなければ null。
+   */
+  setMultiAxisSummary(
+    userId: string,
+    summary: {
+      again: number;
+      talk: number;
+      manner: number;
+      overall: number;
+      count: number;
+    }
+  ): Promise<ProfileEntity | null>;
   /** 開催完了(done)参加の累計 attendedCount を +1（バッジ判定の入力）。存在しなければ null。 */
   incrementAttended(userId: string): Promise<ProfileEntity | null>;
+  /** S8: no-show 確定時に noShowCount を +1。存在しなければ null。 */
+  incrementNoShow(userId: string): Promise<ProfileEntity | null>;
 }
 
 export interface IdentitiesRepo {
@@ -253,6 +308,17 @@ export interface IdentitiesRepo {
   approve(id: string, reviewerId: string): Promise<IdentityEntity | null>;
   /** 却下: status=rejected + reviewNote(理由)。 */
   reject(id: string, reviewerId: string, reason: string): Promise<IdentityEntity | null>;
+  /**
+   * S8: AI一次判定(Haiku)の結果を記録する（spec 要望2）。
+   * verdict/reason と aiCheckedAt=now を書き込む。status は変更しない
+   * （明白OKの自動承認は呼び出し側 service が approve を別途呼ぶ＝判定と承認を分離）。
+   * 存在しなければ null。
+   */
+  setAiVerdict(
+    id: string,
+    verdict: IdentityAiVerdict,
+    reason: string
+  ): Promise<IdentityEntity | null>;
 }
 
 export interface SlotsRepo {
@@ -354,6 +420,31 @@ export interface NotificationsRepo {
   ): Promise<NotificationLogEntity[]>;
 }
 
+/** S8: 会場候補の作成入力（AI/運営が候補を追加）。spec 要望2。 */
+export interface CreateVenueCandidateInput {
+  slotId: string;
+  name: string;
+  url?: string | null;
+  tabelogScore?: number | null;
+  googleScore?: number | null;
+  fitScore?: number | null;
+  area: Area;
+  suggestedBy?: string | null;
+}
+
+/** S8: 会場候補リポジトリ（spec 要望2: 成立枠に対する店候補レコメンド）。 */
+export interface VenueCandidatesRepo {
+  /** 枠の候補一覧。fitScore 降順（合コン向き度が高い順）→ 同点は createdAt 昇順。 */
+  listBySlot(slotId: string): Promise<VenueCandidateEntity[]>;
+  findById(id: string): Promise<VenueCandidateEntity | null>;
+  create(input: CreateVenueCandidateInput): Promise<VenueCandidateEntity>;
+  /** 候補の状態更新（chosen で運営が予約確定 / rejected で除外）。 */
+  setStatus(
+    id: string,
+    status: VenueCandidateStatus
+  ): Promise<VenueCandidateEntity | null>;
+}
+
 export interface Repo {
   users: UsersRepo;
   profiles: ProfilesRepo;
@@ -363,6 +454,8 @@ export interface Repo {
   badges: BadgesRepo;
   matches: MatchesRepo;
   notifications: NotificationsRepo;
+  /** S8: 会場候補。 */
+  venueCandidates: VenueCandidatesRepo;
 }
 
 /** 応募(Application)に紐づくユーザーの最小情報（メンバー要約用・PII最小）。 */

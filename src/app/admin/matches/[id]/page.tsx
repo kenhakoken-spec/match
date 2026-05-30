@@ -12,12 +12,20 @@
 // POST /api/admin/matches/[id]/notify → { match: AdminMatchDetailDTO, notified: number }
 // POST /api/admin/matches/[id]/complete → { slotStatus, attendedIncremented }
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { ErrorState, LoadingState } from "@/components/States";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { TextField } from "@/components/ui/Field";
+import { VenueCandidateCard } from "@/components/VenueCandidateCard";
+import {
+  listVenues,
+  suggestVenues,
+  chooseVenue,
+  rejectVenue,
+} from "@/app/_lib/api-venue";
+import type { VenueCandidateDTO } from "@/lib/types";
 import {
   completeMatch,
   fetchAdminMatch,
@@ -66,6 +74,14 @@ export default function AdminMatchDetailPage({ params }: { params: Promise<{ id:
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
 
+  // venue candidates (S8 要望2) — additive; the manual venue form below is unchanged.
+  const [candidates, setCandidates] = useState<VenueCandidateDTO[]>([]);
+  const [candLoading, setCandLoading] = useState(false);
+  const [candError, setCandError] = useState<string | null>(null);
+  const [candMsg, setCandMsg] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [candBusyId, setCandBusyId] = useState<string | null>(null);
+
   function applyMatch(m: AdminMatchDetailDTO) {
     setMatch(m);
     if (m.venue) {
@@ -92,6 +108,77 @@ export default function AdminMatchDetailPage({ params }: { params: Promise<{ id:
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const slotId = match?.slotId ?? null;
+
+  const loadCandidates = useCallback(async (sid: string) => {
+    setCandLoading(true);
+    setCandError(null);
+    try {
+      setCandidates(await listVenues(sid));
+    } catch {
+      setCandError("候補の読み込みに失敗しました。");
+    } finally {
+      setCandLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (slotId) void loadCandidates(slotId);
+  }, [slotId, loadCandidates]);
+
+  async function handleSuggest() {
+    if (!slotId) return;
+    setSuggesting(true);
+    setCandError(null);
+    setCandMsg(null);
+    const outcome = await suggestVenues(slotId);
+    setSuggesting(false);
+    if (outcome.ok && outcome.items) {
+      setCandidates(outcome.items);
+      setCandMsg(
+        outcome.created && outcome.created > 0
+          ? `候補を${outcome.created}件生成しました。`
+          : "候補は生成済みです。",
+      );
+    } else {
+      setCandError(outcome.errorMessage ?? "候補生成に失敗しました。");
+    }
+  }
+
+  async function handleChooseCandidate(candidateId: string, reservationName_: string) {
+    setCandBusyId(candidateId);
+    setCandError(null);
+    setCandMsg(null);
+    const outcome = await chooseVenue(candidateId, { reservationName: reservationName_ });
+    setCandBusyId(null);
+    if (outcome.ok) {
+      setCandMsg("会場を確定しました。下の「6名へ通知を送信」でメンバーに連絡できます。");
+      // Refresh the match so the venue fields/status reflect the choice, then the list.
+      await load();
+      if (slotId) await loadCandidates(slotId);
+    } else {
+      setCandError(
+        outcome.errorCode === "candidate_not_suggestable"
+          ? "この候補はすでに選択／却下済みです。"
+          : outcome.errorCode === "match_not_settable"
+            ? "この枠は通知済みのため会場を変更できません。"
+            : outcome.errorMessage ?? "会場の確定に失敗しました。",
+      );
+    }
+  }
+
+  async function handleRejectCandidate(candidateId: string) {
+    setCandBusyId(candidateId);
+    setCandError(null);
+    const outcome = await rejectVenue(candidateId);
+    setCandBusyId(null);
+    if (outcome.ok) {
+      if (slotId) await loadCandidates(slotId);
+    } else {
+      setCandError(outcome.errorMessage ?? "却下に失敗しました。");
+    }
+  }
 
   const venueValid = venueName.trim() !== "" && reservationName.trim() !== "";
   const venueSaved = match?.status === "venue_set" || match?.status === "notified";
@@ -205,11 +292,61 @@ export default function AdminMatchDetailPage({ params }: { params: Promise<{ id:
             </ul>
           </section>
 
-          {/* 会場入力フォーム */}
+          {/* 会場候補（S8 要望2）— 合コン向き度の高い順。1つ選んで予約名を入れて確定。 */}
           <section className="mt-8">
-            <h2 className="font-sans text-[15px] font-bold text-ink-900">会場を入力</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-sans text-[15px] font-bold text-ink-900">
+                会場候補（合コン向き度の高い順）
+              </h2>
+              <button
+                type="button"
+                data-testid="venue-suggest"
+                onClick={handleSuggest}
+                disabled={suggesting}
+                className="inline-flex h-10 items-center rounded-md border border-accent-500 px-4 font-sans text-[13px] font-semibold text-accent-600 transition-colors hover:bg-accent-100 disabled:cursor-not-allowed disabled:border-line-200 disabled:text-ink-300"
+              >
+                {suggesting ? "生成しています…" : "候補生成"}
+              </button>
+            </div>
             <p className="mt-1 font-sans text-[13px] text-ink-500">
-              店舗の予約後に入力してください。保存すると6名へ通知を送信できます。
+              候補から1つ選んで予約名を入れると会場が確定します。手動入力も下で行えます。
+            </p>
+            {candMsg ? (
+              <p className="mt-3 rounded-sm border border-secondary-500/40 bg-secondary-100 px-3 py-2 font-sans text-[13px] text-secondary-500">
+                {candMsg}
+              </p>
+            ) : null}
+            {candError ? (
+              <p role="alert" className="mt-3 font-sans text-[13px] text-state-danger">
+                {candError}
+              </p>
+            ) : null}
+            {candLoading ? (
+              <p className="mt-3 font-sans text-[13px] text-ink-500">読み込んでいます…</p>
+            ) : candidates.length === 0 ? (
+              <p className="mt-3 font-sans text-[13px] text-ink-500">
+                候補がありません。「候補生成」で作成してください。
+              </p>
+            ) : (
+              <div data-testid="venue-candidate-list" className="mt-3 space-y-3">
+                {candidates.map((c) => (
+                  <VenueCandidateCard
+                    key={c.id}
+                    candidate={c}
+                    busy={candBusyId === c.id}
+                    onChoose={(name) => handleChooseCandidate(c.id, name)}
+                    onReject={() => handleRejectCandidate(c.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* 会場入力フォーム（手動入力） */}
+          <section className="mt-8 border-t border-line-100 pt-6">
+            <h2 className="font-sans text-[15px] font-bold text-ink-900">会場を入力（手動）</h2>
+            <p className="mt-1 font-sans text-[13px] text-ink-500">
+              候補を使わない場合は、店舗の予約後にここで入力してください。保存すると6名へ通知を送信できます。
             </p>
             <div className="mt-3 space-y-4" data-testid="venue-form">
               <TextField

@@ -12,7 +12,7 @@
 // =============================================================================
 
 import "server-only";
-import { computeFee } from "@/lib/domain/payment";
+import { computeFee, penaltyAmountJpy } from "@/lib/domain/payment";
 import { getRepo } from "@/lib/repo";
 import {
   getPaymentRepo,
@@ -229,4 +229,79 @@ export async function confirmPayment(
 /** 自分の決済履歴（mine）。 */
 export async function listMyPayments(userId: string): Promise<PaymentEntity[]> {
   return getPaymentRepo().listByUser(userId);
+}
+
+// =============================================================================
+// S8 — ドタキャン罰金（no-show penalty）課金。spec 要望5。
+// 正典: docs/01_s8_spec.md 要望5 / docs/backend/api-contract-s8-foundation.md。
+//
+// ルール（厳守）:
+//  - no-show 確定（同席者2人以上が「来なかった」と報告 = domain/noshow.isNoShowConfirmed）
+//    後にのみ呼ぶ。確定判定そのものは noshow-service が行い、本関数は「課金」に徹する。
+//  - 額は domain/payment.penaltyAmountJpy()（=¥5,000）一律。性別/参加歴に依らない。
+//  - **冪等**: 同一(slotId, ratee)に既に no_show_penalty があれば再課金しない
+//    （二重課金防止）。参加費(participation)とは type で区別するため、参加費が
+//    あっても no-show 罰金は別途1件だけ作る。
+//  - 課金は登録カードへ即時確定（参加費の「与信→成立後capture」とは異なり、
+//    既に発生済みのペナルティなので succeeded で確定記録を作る）。本番は実 Stripe、
+//    今は stripe-mock（createPaymentIntent→capture）。
+// =============================================================================
+
+/** chargeNoShowPenalty の結果区分。 */
+export interface NoShowPenaltyResult {
+  /** 今回新たに課金したか（既存があれば false=冪等スキップ）。 */
+  charged: boolean;
+  /** 作成 or 既存の罰金 Payment（in-memory 実装は常に返す）。 */
+  payment: PaymentEntity | null;
+}
+
+/**
+ * ドタキャン罰金 ¥5,000 を ratee（来なかった人）に課金する。
+ *
+ * @param rateeUserId no-show が確定した対象ユーザー（罰金を負う人）。
+ * @param slotId      対象イベント枠。
+ * @returns charged（今回課金したか）+ payment。
+ *
+ * 冪等: 既に (slotId, ratee, no_show_penalty) があれば課金せず既存を返す。
+ * 実 Stripe 差し替え: createPaymentIntent/capturePaymentIntent は stripe-mock。
+ *   本番では登録済みカード(stripeCustomerId)へ off_session 課金に置き換える。
+ */
+export async function chargeNoShowPenalty(
+  rateeUserId: string,
+  slotId: string
+): Promise<NoShowPenaltyResult> {
+  const payments = getPaymentRepo();
+
+  // 冪等: 同一(枠, 対象)の罰金が既にあれば二重課金しない。
+  const existing = await payments.findBySlotUserAndType(
+    slotId,
+    rateeUserId,
+    "no_show_penalty"
+  );
+  if (existing) {
+    return { charged: false, payment: existing };
+  }
+
+  const amountJpy = penaltyAmountJpy();
+
+  // Stripe(モック): PaymentIntent を作成し即 capture（ペナルティは発生済みのため確定課金）。
+  // metadata は内部IDのみ（カード/PIIは入れない＝stripe-mock 側でも防御）。
+  const intent = await createPaymentIntent({
+    amountJpy,
+    metadata: { userId: rateeUserId, slotId, kind: "no_show_penalty" },
+  });
+  await capturePaymentIntent(intent.id);
+
+  const payment = await payments.create({
+    userId: rateeUserId,
+    slotId,
+    amount: amountJpy,
+    isFirstFree: false,
+    type: "no_show_penalty",
+    status: "succeeded", // ペナルティは確定課金（capture 済み）。
+    stripePaymentIntentId: intent.id,
+    note: "no_show_penalty", // 状態の要約のみ（PIIなし）。
+  });
+
+  return { charged: true, payment };
 }

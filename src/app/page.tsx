@@ -1,68 +1,20 @@
-"use client";
+// U-00 入口（`/`）— 通常はLINEログイン、RELEASE_MODE=waiting のときは
+// 「リリースをお待ちください」画面（01_s8_spec.md 要望3）。
+//
+// 全体ゲートはこの入口に置く。Server Component の ReleaseGate が server-only な
+// isWaiting() を評価し、
+//   - waiting: ComingSoon を描画（ユーザーをコア機能に入れない）。
+//   - open（既定）: 既存の LoginScreen をそのまま描画＝挙動不変。
+// 公開プレビュー /explore と運営 /admin はこのゲートを通さない（spec準拠で
+// waiting でも閲覧可）。ログイン本体は LoginScreen（client）に切り出してある。
 
-// U-00 スプラッシュ / LINEログイン (STEP0) — wireframes.md U-00.
-// Minimal. Quiet editorial logo, one functional copy line, the LINE button,
-// and small 利用規約/プライバシー links. No purple gradient, no promo tone.
+import { ReleaseGate } from "@/components/ReleaseGate";
+import { LoginScreen } from "./LoginScreen";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { devLogin } from "./_lib/api";
-import { Button } from "@/components/ui/Button";
-
-export default function LoginPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-
-  async function handleLogin() {
-    setLoading(true);
-    // Mock dev-login per contract §2 (POST /api/auth/dev-login). On failure the
-    // api client falls back to ok:true so the onboarding flow stays reachable.
-    await devLogin();
-    router.push("/onboarding");
-  }
-
+export default function Page() {
   return (
-    <main className="flex min-h-[100dvh] flex-col justify-between px-6 pb-10 pt-16">
-      <div className="pt-8">
-        {/* Editorial mark — a small drawn diamond, not a glossy SaaS logo. */}
-        <div
-          aria-hidden
-          className="mb-6 flex h-11 w-11 items-center justify-center rounded-md border border-line-200 text-accent-500"
-        >
-          <span className="text-lg leading-none">◇</span>
-        </div>
-        <p className="font-serif text-[22px] font-semibold tracking-tight text-ink-900">
-          rendez
-        </p>
-        <p className="mt-1 font-sans text-[13px] tracking-wide text-ink-500">
-          東京・恵比寿 / 池袋 / 銀座
-        </p>
-
-        <h2 className="mt-10 font-serif text-[28px] leading-[1.35] text-ink-900">
-          3対3で、会いにいく。
-        </h2>
-        <p className="mt-4 max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
-          男女3人ずつ、計6人で集まる新しい合コン。アプリ内のやり取りはありません。
-          会場はこちらで手配します。
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        <Button data-testid="login-button" onClick={handleLogin} disabled={loading}>
-          {loading ? "接続しています…" : "LINEではじめる"}
-        </Button>
-        <p className="text-center font-sans text-xs leading-relaxed text-ink-500">
-          続行すると{" "}
-          <a href="/legal/terms" className="text-accent-500 underline">
-            利用規約
-          </a>{" "}
-          /{" "}
-          <a href="/legal/privacy" className="text-accent-500 underline">
-            プライバシー
-          </a>{" "}
-          に同意したものとみなします
-        </p>
-      </div>
-    </main>
+    <ReleaseGate>
+      <LoginScreen />
+    </ReleaseGate>
   );
 }

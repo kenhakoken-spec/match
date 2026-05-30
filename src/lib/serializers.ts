@@ -29,6 +29,10 @@ import type {
   MatchSummaryDTO,
   AdminMatchSummaryDTO,
   AdminMatchDetailDTO,
+  PublicSlotDTO,
+  PublicMemberDTO,
+  MultiAxisRatings,
+  VenueCandidateDTO,
 } from "@/lib/types";
 
 /** YYYY-MM-DD (UTC) に整形。 */
@@ -236,5 +240,110 @@ export function toAdminMatchDetailDTO(
     filled: { male: counts.male, female: counts.female },
     venue: toVenueDTO(m),
     members: members.map(toMatchMemberDTO),
+  };
+}
+
+// =============================================================================
+// S8 — 公開(プレビュー)DTO シリアライザ (api-contract-s8-foundation.md §3)
+// PII除去の出口関門:
+//   - toPublicSlotDTO  : SlotDTO のサブセット(個人特定情報なし)。
+//   - toPublicMemberDTO: 氏名/displayName/photoUrl/lineUserId/正確な生年月日を **出さない**。
+//                        年代バンド・職種・多軸評価・優良バッジのみ(要望1)。
+//   - toAgeBand        : 生年月日 → "20代後半" 等の年代バンド(年齢そのものも出さない)。
+// =============================================================================
+
+/**
+ * 生年月日を年代バンド文字列に変換する（PII最小化: 正確な生年月日も年齢も出さない）。
+ * 例: 22歳 → "20代前半" / 27歳 → "20代後半" / 34歳 → "30代前半"。
+ * - 20歳未満（年齢確認で実際にはほぼ無いが防御）→ "10代"。
+ * - 不正な birthdate（NaN）や算出不能 → "年齢非公開"。
+ * - 前半 = その10年代の 0〜4歳目（下1桁0-4）, 後半 = 5〜9歳目（下1桁5-9）。
+ */
+export function toAgeBand(birthdate: Date, now: Date = new Date()): string {
+  const age = calcAge(birthdate, now);
+  if (!Number.isFinite(age) || Number.isNaN(age)) return "年齢非公開";
+  if (age < 20) return "10代";
+  if (age >= 70) return "70代以上";
+  const decade = Math.floor(age / 10) * 10; // 20,30,40...
+  const half = age % 10 < 5 ? "前半" : "後半";
+  return `${decade}代${half}`;
+}
+
+/** ProfileEntity の多軸集計（軸別平均 + 総合 + 件数）→ MultiAxisRatings。 */
+export function toMultiAxisRatings(p: {
+  scoreAgainAvg: number;
+  scoreTalkAvg: number;
+  scoreMannerAvg: number;
+  ratingAvg: number;
+  ratingCount: number;
+}): MultiAxisRatings {
+  return {
+    again: p.scoreAgainAvg,
+    talk: p.scoreTalkAvg,
+    manner: p.scoreMannerAvg,
+    overall: p.ratingAvg, // 総合は ratingAvg(=overall) を正本にする。
+    count: p.ratingCount,
+  };
+}
+
+/** SlotEntity + 性別カウント → 公開枠DTO（個人特定情報なし）。 */
+export function toPublicSlotDTO(slot: SlotEntity, counts: GenderCounts): PublicSlotDTO {
+  return {
+    id: slot.id,
+    datetimeStart: slot.datetimeStart.toISOString(),
+    area: slot.area,
+    capacityPerGender: slot.capacityPerGender,
+    filled: { male: counts.male, female: counts.female },
+    conditions: {
+      minAge: slot.minAge,
+      maxAge: slot.maxAge,
+      requiresBadge: slot.requiresBadge ? "premium" : null,
+    },
+    feeMale: slot.feeMale,
+    status: slot.status,
+  };
+}
+
+/**
+ * ProfileEntity（+ premium保有フラグ）→ 公開メンバーDTO。
+ * **PII除去の要**: 氏名/displayName/photoUrl/lineUserId/正確な生年月日は受け取らない・出さない。
+ * 年代バンド・職種・多軸評価・優良バッジのみを返す。
+ */
+export function toPublicMemberDTO(
+  p: ProfileEntity,
+  hasPremiumBadge: boolean,
+  now: Date = new Date()
+): PublicMemberDTO {
+  return {
+    ageBand: toAgeBand(p.birthdate, now),
+    gender: p.gender,
+    occupation: p.occupation,
+    ratings: toMultiAxisRatings(p),
+    hasPremiumBadge,
+  };
+}
+
+/** VenueCandidateEntity → DTO（運営/レコメンド表示用。PIIなし）。 */
+export function toVenueCandidateDTO(v: {
+  id: string;
+  slotId: string;
+  name: string;
+  url: string | null;
+  tabelogScore: number | null;
+  googleScore: number | null;
+  fitScore: number | null;
+  area: VenueCandidateDTO["area"];
+  status: VenueCandidateDTO["status"];
+}): VenueCandidateDTO {
+  return {
+    id: v.id,
+    slotId: v.slotId,
+    name: v.name,
+    url: v.url,
+    tabelogScore: v.tabelogScore,
+    googleScore: v.googleScore,
+    fitScore: v.fitScore,
+    area: v.area,
+    status: v.status,
   };
 }

@@ -34,6 +34,53 @@ export function StarSummary({
   );
 }
 
+// Read-only multi-axis summary (S8 / spec 要望4): 総合 + 3軸（また会いたい/会話/マナー）。
+// Quiet, non-competitive display per §4.7 D / §8 — average + count only, never a rank.
+// Small ★ glyph (decoration) + the numeric value (color is not the only signal / §5).
+function AxisLine({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="font-sans text-[13px] text-ink-700">{label}</span>
+      <span className="inline-flex items-center gap-1 font-sans text-[13px] tabular-nums text-ink-700">
+        <span aria-hidden className="text-accent-500">
+          ★
+        </span>
+        {value.toFixed(1)}
+      </span>
+    </div>
+  );
+}
+
+export function MultiAxisSummary({
+  again,
+  talk,
+  manner,
+  overall,
+  count,
+}: {
+  again: number;
+  talk: number;
+  manner: number;
+  overall: number;
+  count: number;
+}) {
+  return (
+    <div className="space-y-2">
+      {/* 総合（やや強め）+ 件数。 */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-sans text-[14px] font-semibold text-ink-900">総合</span>
+        <StarSummary avg={overall} count={count} />
+      </div>
+      {/* 3軸の内訳（静かに）。 */}
+      <div className="space-y-1.5 border-t border-line-100 pt-2">
+        <AxisLine label="また会いたい" value={again} />
+        <AxisLine label="会話" value={talk} />
+        <AxisLine label="マナー" value={manner} />
+      </div>
+    </div>
+  );
+}
+
 // Interactive 5-step star input (U-15). A native radiogroup so it is keyboard-
 // operable and screen-reader friendly: each star is a radio labelled "N点".
 // Each control is ≥44pt (h-11 w-11) per §4.7 D / accessibility §6. Color is not

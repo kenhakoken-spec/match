@@ -41,10 +41,27 @@ export interface PendingRatingDTO {
   members: PendingMemberDTO[];
 }
 
-/** 受領評価サマリ（/api/ratings/received/summary）。Profile集計と同値。 */
+/** 受領評価サマリ（後方互換の単一スコア集計）。Profile.ratingAvg/ratingCount と同値。 */
 export interface RatingSummary {
   /** 平均評価（0.0〜5.0・小数1桁）。 */
   avg: number;
+  /** 受領件数。 */
+  count: number;
+}
+
+/**
+ * S8 多軸 受領評価サマリ（/api/ratings/received/summary）。
+ * 各軸平均 + 総合(overall) + 件数。domain/rating の MultiAxisAggregate と同形。
+ */
+export interface MultiAxisRatingSummary {
+  /** 「また会いたい」軸の平均（小数1桁）。 */
+  again: number;
+  /** 「会話」軸の平均（小数1桁）。 */
+  talk: number;
+  /** 「マナー」軸の平均（小数1桁）。 */
+  manner: number;
+  /** 総合平均（3軸の全スコア平均・小数1桁）。 */
+  overall: number;
   /** 受領件数。 */
   count: number;
 }

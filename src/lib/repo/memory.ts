@@ -17,6 +17,7 @@ import type {
   BadgesRepo,
   MatchesRepo,
   NotificationsRepo,
+  VenueCandidatesRepo,
   UserEntity,
   ProfileEntity,
   IdentityEntity,
@@ -24,12 +25,14 @@ import type {
   ApplicationEntity,
   MatchEntity,
   NotificationLogEntity,
+  VenueCandidateEntity,
   UpsertUserInput,
   UpsertProfileInput,
   SubmitIdentityInput,
   CreateSlotInput,
   ListSlotsFilter,
   CreateApplicationInput,
+  CreateVenueCandidateInput,
   GenderCounts,
   ApplyAtomicResult,
   CancelOwnResult,
@@ -38,7 +41,13 @@ import type {
   MatchEntityStatus,
   NotificationTypeValue,
 } from "./types";
-import type { IdentityStatus, SlotStatus, Gender } from "@/lib/types";
+import type {
+  IdentityStatus,
+  SlotStatus,
+  Gender,
+  IdentityAiVerdict,
+  VenueCandidateStatus,
+} from "@/lib/types";
 
 interface Store {
   users: Map<string, UserEntity>;
@@ -49,6 +58,7 @@ interface Store {
   badges: Map<string, Set<"premium">>; // key: userId → 保有バッジ集合(S2はseedのみ)
   matches: Map<string, MatchEntity>; // key: match id
   notifications: NotificationLogEntity[]; // 追記順（監査ログ）
+  venueCandidates: Map<string, VenueCandidateEntity>; // key: venue candidate id
   seeded: boolean;
 }
 
@@ -69,6 +79,7 @@ function emptyStore(): Store {
     badges: new Map(),
     matches: new Map(),
     notifications: [],
+    venueCandidates: new Map(),
     seeded: false,
   };
 }
@@ -130,6 +141,8 @@ class MemoryProfilesRepo implements ProfilesRepo {
       existing.birthdate = input.birthdate;
       existing.areaPref = input.areaPref;
       existing.bio = input.bio ?? null;
+      // occupation は指定時のみ更新（未指定は既存値維持＝部分更新の事故防止）。
+      if (input.occupation !== undefined) existing.occupation = input.occupation;
       existing.updatedAt = now;
       s.profiles.set(input.userId, existing);
       return existing;
@@ -142,9 +155,14 @@ class MemoryProfilesRepo implements ProfilesRepo {
       photoUrl: null,
       bio: input.bio ?? null,
       areaPref: input.areaPref,
+      occupation: input.occupation ?? null,
       ratingAvg: 0,
       ratingCount: 0,
       attendedCount: 0,
+      scoreAgainAvg: 0,
+      scoreTalkAvg: 0,
+      scoreMannerAvg: 0,
+      noShowCount: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -173,11 +191,43 @@ class MemoryProfilesRepo implements ProfilesRepo {
     s.profiles.set(userId, existing);
     return existing;
   }
+  async setMultiAxisSummary(
+    userId: string,
+    summary: {
+      again: number;
+      talk: number;
+      manner: number;
+      overall: number;
+      count: number;
+    }
+  ): Promise<ProfileEntity | null> {
+    const s = store();
+    const existing = s.profiles.get(userId);
+    if (!existing) return null;
+    // overall を総合(ratingAvg)へ、軸別を各 *Avg へ。ratingCount も同期。
+    existing.ratingAvg = summary.overall;
+    existing.ratingCount = summary.count;
+    existing.scoreAgainAvg = summary.again;
+    existing.scoreTalkAvg = summary.talk;
+    existing.scoreMannerAvg = summary.manner;
+    existing.updatedAt = new Date();
+    s.profiles.set(userId, existing);
+    return existing;
+  }
   async incrementAttended(userId: string): Promise<ProfileEntity | null> {
     const s = store();
     const existing = s.profiles.get(userId);
     if (!existing) return null;
     existing.attendedCount += 1;
+    existing.updatedAt = new Date();
+    s.profiles.set(userId, existing);
+    return existing;
+  }
+  async incrementNoShow(userId: string): Promise<ProfileEntity | null> {
+    const s = store();
+    const existing = s.profiles.get(userId);
+    if (!existing) return null;
+    existing.noShowCount += 1;
     existing.updatedAt = new Date();
     s.profiles.set(userId, existing);
     return existing;
@@ -207,6 +257,10 @@ class MemoryIdentitiesRepo implements IdentitiesRepo {
       existing.reviewedAt = null;
       existing.reviewNote = null;
       existing.imageDeletedAt = null;
+      // 再申請時はAI判定もリセット（新しい画像で再判定する）。
+      existing.aiVerdict = null;
+      existing.aiReason = null;
+      existing.aiCheckedAt = null;
       existing.submittedAt = now;
       existing.updatedAt = now;
       s.identities.set(input.userId, existing);
@@ -223,6 +277,9 @@ class MemoryIdentitiesRepo implements IdentitiesRepo {
       reviewedAt: null,
       reviewNote: null,
       imageDeletedAt: null,
+      aiVerdict: null,
+      aiReason: null,
+      aiCheckedAt: null,
       submittedAt: now,
       updatedAt: now,
     };
@@ -268,6 +325,22 @@ class MemoryIdentitiesRepo implements IdentitiesRepo {
     // 却下でも再提出に備え画像を早期削除(運用ポリシー / auth-flow.md §2)。
     iv.blobRef = null;
     iv.imageDeletedAt = now;
+    iv.updatedAt = now;
+    store().identities.set(iv.userId, iv);
+    return iv;
+  }
+  async setAiVerdict(
+    id: string,
+    verdict: IdentityAiVerdict,
+    reason: string
+  ): Promise<IdentityEntity | null> {
+    const iv = await this.findById(id);
+    if (!iv) return null;
+    const now = new Date();
+    // 判定の記録のみ（status は変えない＝判定と承認/却下を分離）。
+    iv.aiVerdict = verdict;
+    iv.aiReason = reason;
+    iv.aiCheckedAt = now;
     iv.updatedAt = now;
     store().identities.set(iv.userId, iv);
     return iv;
@@ -621,6 +694,58 @@ class MemoryNotificationsRepo implements NotificationsRepo {
   }
 }
 
+class MemoryVenueCandidatesRepo implements VenueCandidatesRepo {
+  async listBySlot(slotId: string): Promise<VenueCandidateEntity[]> {
+    const out: VenueCandidateEntity[] = [];
+    for (const v of store().venueCandidates.values()) {
+      if (v.slotId === slotId) out.push(v);
+    }
+    // fitScore 降順（合コン向き度が高い順）。null は最後。同点は createdAt 昇順で安定化。
+    out.sort((a, b) => {
+      const fa = a.fitScore ?? -Infinity;
+      const fb = b.fitScore ?? -Infinity;
+      if (fb !== fa) return fb - fa;
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+    return out;
+  }
+  async findById(id: string): Promise<VenueCandidateEntity | null> {
+    return store().venueCandidates.get(id) ?? null;
+  }
+  async create(input: CreateVenueCandidateInput): Promise<VenueCandidateEntity> {
+    const s = store();
+    const now = new Date();
+    const v: VenueCandidateEntity = {
+      id: cuid(),
+      slotId: input.slotId,
+      name: input.name,
+      url: input.url ?? null,
+      tabelogScore: input.tabelogScore ?? null,
+      googleScore: input.googleScore ?? null,
+      fitScore: input.fitScore ?? null,
+      area: input.area,
+      status: "suggested",
+      suggestedBy: input.suggestedBy ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    s.venueCandidates.set(v.id, v);
+    return v;
+  }
+  async setStatus(
+    id: string,
+    status: VenueCandidateStatus
+  ): Promise<VenueCandidateEntity | null> {
+    const s = store();
+    const v = s.venueCandidates.get(id);
+    if (!v) return null;
+    v.status = status;
+    v.updatedAt = new Date();
+    s.venueCandidates.set(id, v);
+    return v;
+  }
+}
+
 export class MemoryRepo implements Repo {
   users = new MemoryUsersRepo();
   profiles = new MemoryProfilesRepo();
@@ -630,6 +755,7 @@ export class MemoryRepo implements Repo {
   badges = new MemoryBadgesRepo();
   matches = new MemoryMatchesRepo();
   notifications = new MemoryNotificationsRepo();
+  venueCandidates = new MemoryVenueCandidatesRepo();
 }
 
 // =============================================================================
@@ -670,9 +796,14 @@ function seed(s: Store): void {
     photoUrl: null,
     bio: "よろしくお願いします",
     areaPref: ["ebisu", "ginza"],
-    ratingAvg: 0,
-    ratingCount: 0,
-    attendedCount: 0,
+    occupation: "it",
+    ratingAvg: 4.6, // premium 相当の総合平均（バッジ seed と整合）。
+    ratingCount: 8,
+    attendedCount: 3,
+    scoreAgainAvg: 4.7,
+    scoreTalkAvg: 4.5,
+    scoreMannerAvg: 4.6,
+    noShowCount: 0,
     createdAt: now,
     updatedAt: now,
   });
@@ -687,6 +818,9 @@ function seed(s: Store): void {
     reviewedAt: now,
     reviewNote: null,
     imageDeletedAt: now,
+    aiVerdict: "ok", // 承認済 = AI一次判定 ok（自動承認経路のサンプル）。
+    aiReason: "18歳以上・顔写真あり・記載読取可（seed）",
+    aiCheckedAt: now,
     submittedAt: now,
     updatedAt: now,
   });
@@ -713,9 +847,14 @@ function seed(s: Store): void {
     photoUrl: null,
     bio: null,
     areaPref: ["ikebukuro"],
+    occupation: "medical",
     ratingAvg: 0,
     ratingCount: 0,
     attendedCount: 0,
+    scoreAgainAvg: 0,
+    scoreTalkAvg: 0,
+    scoreMannerAvg: 0,
+    noShowCount: 0,
     createdAt: now,
     updatedAt: now,
   });
@@ -782,13 +921,14 @@ function seed(s: Store): void {
     name: string;
     gender: Gender;
     birthYear: number;
+    occupation: ProfileEntity["occupation"];
   }> = [
-    { id: "seed-m1", line: "Us3male1", name: "S3太郎", gender: "male", birthYear: 1992 },
-    { id: "seed-m2", line: "Us3male2", name: "S3次郎", gender: "male", birthYear: 1993 },
-    { id: "seed-m3", line: "Us3male3", name: "S3三郎", gender: "male", birthYear: 1991 },
-    { id: "seed-f1", line: "Us3female1", name: "S3花子", gender: "female", birthYear: 1995 },
-    { id: "seed-f2", line: "Us3female2", name: "S3桃子", gender: "female", birthYear: 1996 },
-    { id: "seed-f3", line: "Us3female3", name: "S3梅子", gender: "female", birthYear: 1997 },
+    { id: "seed-m1", line: "Us3male1", name: "S3太郎", gender: "male", birthYear: 1992, occupation: "company_employee" },
+    { id: "seed-m2", line: "Us3male2", name: "S3次郎", gender: "male", birthYear: 1993, occupation: "executive" },
+    { id: "seed-m3", line: "Us3male3", name: "S3三郎", gender: "male", birthYear: 1991, occupation: "finance" },
+    { id: "seed-f1", line: "Us3female1", name: "S3花子", gender: "female", birthYear: 1995, occupation: "creative" },
+    { id: "seed-f2", line: "Us3female2", name: "S3桃子", gender: "female", birthYear: 1996, occupation: "public_servant" },
+    { id: "seed-f3", line: "Us3female3", name: "S3梅子", gender: "female", birthYear: 1997, occupation: "it" },
   ];
   for (const m of members) {
     s.users.set(m.id, {
@@ -808,9 +948,14 @@ function seed(s: Store): void {
       photoUrl: null,
       bio: null,
       areaPref: ["ebisu", "ikebukuro", "ginza"],
+      occupation: m.occupation,
       ratingAvg: 0,
       ratingCount: 0,
       attendedCount: 0,
+      scoreAgainAvg: 0,
+      scoreTalkAvg: 0,
+      scoreMannerAvg: 0,
+      noShowCount: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -825,6 +970,9 @@ function seed(s: Store): void {
       reviewedAt: now,
       reviewNote: null,
       imageDeletedAt: now,
+      aiVerdict: "ok",
+      aiReason: "18歳以上・顔写真あり（seed）",
+      aiCheckedAt: now,
       submittedAt: now,
       updatedAt: now,
     });
@@ -925,6 +1073,183 @@ function seed(s: Store): void {
     sentAt: now,
     createdAt: now,
   });
+
+  // --- S8 seed: 水/金/土 19:30集合 の枠を恵比寿/池袋/銀座で複数（spec 要望3）。--------
+  // 「誰でもOK」中心 + 20代限定1 + 優良バッジ限定1。プレビュー(要望1)で枠一覧/詳細を
+  // 見せるための初期データ。19:30 JST = 10:30 UTC。next で各曜日の最も近い未来日時を作る。
+  const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  /** 指定曜日(0=日..6=土)・JST hh:mm の「現在より未来で最も近い」日時を返す。 */
+  function nextWeekdayAtJst(weekday: number, hh: number, mm: number): Date {
+    // now(UTC) を JST のカレンダー日に直し、目標曜日まで進めてから UTC に戻す。
+    const jstNow = new Date(now.getTime() + JST_OFFSET_MS);
+    const result = new Date(
+      Date.UTC(
+        jstNow.getUTCFullYear(),
+        jstNow.getUTCMonth(),
+        jstNow.getUTCDate(),
+        hh,
+        mm,
+        0,
+        0
+      )
+    );
+    // result は「JSTのhh:mm」を表す壁時計。UTC実体へ変換するため offset を引く。
+    let utcTarget = result.getTime() - JST_OFFSET_MS;
+    const dayMs = 24 * 60 * 60 * 1000;
+    // 目標曜日まで前進（同日でも時刻が過ぎていたら来週へ）。
+    while (
+      new Date(utcTarget + JST_OFFSET_MS).getUTCDay() !== weekday ||
+      utcTarget <= now.getTime()
+    ) {
+      utcTarget += dayMs;
+    }
+    return new Date(utcTarget);
+  }
+
+  const WED = 3;
+  const FRI = 5;
+  const SAT = 6;
+  const s8Slots: SlotEntity[] = [
+    {
+      id: "seed-slot-s8-wed-ebisu",
+      datetimeStart: nextWeekdayAtJst(WED, 19, 30),
+      area: "ebisu",
+      capacityPerGender: 3,
+      status: "open",
+      minAge: null,
+      maxAge: null,
+      requiresBadge: false,
+      feeMale: 2000,
+      note: "水 19:30 恵比寿（誰でもOK）",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "seed-slot-s8-fri-ikebukuro",
+      datetimeStart: nextWeekdayAtJst(FRI, 19, 30),
+      area: "ikebukuro",
+      capacityPerGender: 3,
+      status: "open",
+      minAge: null,
+      maxAge: null,
+      requiresBadge: false,
+      feeMale: 2000,
+      note: "金 19:30 池袋（誰でもOK）",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "seed-slot-s8-sat-ginza",
+      datetimeStart: nextWeekdayAtJst(SAT, 19, 30),
+      area: "ginza",
+      capacityPerGender: 3,
+      status: "open",
+      minAge: null,
+      maxAge: null,
+      requiresBadge: false,
+      feeMale: 2000,
+      note: "土 19:30 銀座（誰でもOK）",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      // 20代限定の会（要望3）。
+      id: "seed-slot-s8-fri-ebisu-20s",
+      datetimeStart: nextWeekdayAtJst(FRI, 19, 30),
+      area: "ebisu",
+      capacityPerGender: 3,
+      status: "open",
+      minAge: 20,
+      maxAge: 29,
+      requiresBadge: false,
+      feeMale: 2000,
+      note: "金 19:30 恵比寿（20代限定）",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      // 優良バッジ限定の会（要望3）。
+      id: "seed-slot-s8-sat-ebisu-badge",
+      datetimeStart: nextWeekdayAtJst(SAT, 19, 30),
+      area: "ebisu",
+      capacityPerGender: 3,
+      status: "open",
+      minAge: null,
+      maxAge: null,
+      requiresBadge: true,
+      feeMale: 2000,
+      note: "土 19:30 恵比寿（優良バッジ限定）",
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
+  for (const slot of s8Slots) s.slots.set(slot.id, slot);
+
+  // プレビュー(要望1)を「参加者のすごさ」付きで見せるため、誰でもOK枠の1つ
+  // (水・恵比寿)に既存 seed メンバーを数名 applied で入れておく（職種/評価が見える）。
+  const previewApplicants = ["seed-m1", "seed-f1", "seed-user-male"];
+  for (const uid of previewApplicants) {
+    const prof = s.profiles.get(uid);
+    if (!prof) continue;
+    s.applications.set(`seed-app-s8wed-${uid}`, {
+      id: `seed-app-s8wed-${uid}`,
+      slotId: "seed-slot-s8-wed-ebisu",
+      userId: uid,
+      gender: prof.gender,
+      status: "applied",
+      paymentId: null,
+      appliedAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // --- S8 seed: 会場候補（要望2）。成立済枠(seed-slot-matched)に合コン向き店候補を
+  //     複数。fitScore 降順でレコメンド表示される（運営が chosen を選んで予約）。----
+  const s8VenueCandidates: VenueCandidateEntity[] = [
+    {
+      id: "seed-venue-cand-1",
+      slotId: slotMatched.id,
+      name: "個室和食 銀座はなれ",
+      url: "https://example.com/ginza-hanare",
+      tabelogScore: 3.62,
+      googleScore: 4.3,
+      fitScore: 0.92,
+      area: slotMatched.area,
+      status: "suggested",
+      suggestedBy: "system",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "seed-venue-cand-2",
+      slotId: slotMatched.id,
+      name: "イタリアン Bar Sei",
+      url: "https://example.com/bar-sei",
+      tabelogScore: 3.48,
+      googleScore: 4.1,
+      fitScore: 0.81,
+      area: slotMatched.area,
+      status: "suggested",
+      suggestedBy: "system",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: "seed-venue-cand-3",
+      slotId: slotMatched.id,
+      name: "立ち飲み やまだ",
+      url: null,
+      tabelogScore: 3.21,
+      googleScore: 3.7,
+      fitScore: 0.55,
+      area: slotMatched.area,
+      status: "suggested",
+      suggestedBy: "system",
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
+  for (const v of s8VenueCandidates) s.venueCandidates.set(v.id, v);
 
   s.seeded = true;
 }

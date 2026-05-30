@@ -12,13 +12,20 @@
 import { getRepo } from "@/lib/repo";
 import { getRatingRepo, DuplicateRatingError } from "@/lib/repo/rating-repo";
 import { evaluateAndGrantOnRating } from "@/lib/badge-service";
-import { canRate, isRatingScoreValid, type CanRateReason } from "@/lib/domain/rating";
+import { evaluateNoShowForRatee } from "@/lib/noshow-service";
+import {
+  canRate,
+  isRatingScoreValid,
+  aggregateMultiAxis,
+  type CanRateReason,
+} from "@/lib/domain/rating";
 import type { ApplicationEntity } from "@/lib/repo/types";
 import type {
   PendingRatingDTO,
   PendingMemberDTO,
   RatingDTO,
   RatingSummary,
+  MultiAxisRatingSummary,
 } from "@/lib/rating-types";
 
 /** その Slot で自分以外の accepted 同席者を返す（read-only / IDOR の同席判定の基礎）。 */
@@ -95,37 +102,86 @@ export async function listPendingRatings(
   return out;
 }
 
+/** no-show 確定の結果サマリ（評価レスポンス補助）。確定しなければ confirmed=false。 */
+export interface NoShowOutcome {
+  /** この評価が「来なかった」報告を含んでいたか。 */
+  reported: boolean;
+  /** 参加者からの報告が2人以上に達して確定したか。 */
+  confirmed: boolean;
+  /** 今回新たに ¥5,000 を課金したか（冪等: 既存罰金があれば false）。 */
+  charged: boolean;
+}
+
 /** 評価送信の結果（route が status に変換）。 */
 export interface SubmitRatingResult {
   ok: boolean;
   /** 失敗理由（canRate の reason または "invalid_score"）。成功時 null。 */
   reason: CanRateReason | "invalid_score" | null;
   rating: RatingDTO | null;
-  /** 保存後の被評価者の集計（Profile 反映用にサービスからも返す）。 */
+  /** 保存後の被評価者の集計（後方互換の単一スコア集計）。 */
   summary: RatingSummary | null;
+  /** S8: 保存後の被評価者の多軸集計（again/talk/manner/overall/count）。 */
+  multiAxis: MultiAxisRatingSummary | null;
+  /** S8: no-show 報告の処理結果（確定/課金）。 */
+  noShow: NoShowOutcome | null;
 }
 
 /**
  * 評価を送信する（POST /api/ratings）。canRate をサーバ側で **再判定** してから保存。
  * - raterUserId は **セッションの sub**（route で解決）。body の rater は受け取らない。
- * - score は 1..5 整数を再検証（zod でも弾くが二重防御）。
+ * - S8: 3軸（scoreAgain/scoreTalk/scoreManner 各1..5）。総合(overall)は domain で算出し、
+ *   後方互換の score にも overall の四捨五入を保存する。
+ * - 各軸 1..5 整数を再検証（zod でも弾くが二重防御）。
  * - 同席者でない / 非参加者 / 二重評価 / self はすべて canRate で拒否。
+ * - noShowReport=true は「来なかった」報告。保存後に no-show 確定判定（2人以上）→
+ *   確定なら noShowCount++ + ¥5,000 自動課金（冪等）。
  */
 export async function submitRating(input: {
   raterUserId: string;
   slotId: string;
   rateeId: string;
-  score: number;
+  scoreAgain: number;
+  scoreTalk: number;
+  scoreManner: number;
   comment?: string | null;
+  noShowReport?: boolean;
 }): Promise<SubmitRatingResult> {
-  const { raterUserId, slotId, rateeId, score, comment } = input;
+  const {
+    raterUserId,
+    slotId,
+    rateeId,
+    scoreAgain,
+    scoreTalk,
+    scoreManner,
+    comment,
+    noShowReport,
+  } = input;
   const repo = getRepo();
   const ratingRepo = getRatingRepo();
 
-  // 0. スコア妥当性（範囲外/非整数を拒否）。
-  if (!isRatingScoreValid(score)) {
-    return { ok: false, reason: "invalid_score", rating: null, summary: null };
+  const fail = (
+    reason: CanRateReason | "invalid_score"
+  ): SubmitRatingResult => ({
+    ok: false,
+    reason,
+    rating: null,
+    summary: null,
+    multiAxis: null,
+    noShow: null,
+  });
+
+  // 0. 3軸スコア妥当性（範囲外/非整数を各軸で拒否）。
+  if (
+    !isRatingScoreValid(scoreAgain) ||
+    !isRatingScoreValid(scoreTalk) ||
+    !isRatingScoreValid(scoreManner)
+  ) {
+    return fail("invalid_score");
   }
+
+  // 総合(overall)を 3軸から算出（1件ぶん）。後方互換の score は overall の四捨五入。
+  const single = aggregateMultiAxis([{ scoreAgain, scoreTalk, scoreManner }]);
+  const overallScore = Math.round(single.overall);
 
   // 1. サーバ状態を収集して canRate の入力を組み立てる。
   const slot = await repo.slots.findById(slotId);
@@ -149,27 +205,49 @@ export async function submitRating(input: {
     selfRate,
   });
   if (!verdict.ok) {
-    return { ok: false, reason: verdict.reason, rating: null, summary: null };
+    return fail(verdict.reason!);
   }
 
   // 3. 保存（同期区間で二重挿入を弾く。競合は 409）。
   try {
-    const { rating, rateeAggregate } = await ratingRepo.recordRating({
-      slotId,
-      raterId: raterUserId,
-      rateeId,
-      score,
-      comment: comment ?? null,
-    });
+    const { rating, rateeAggregate, rateeMultiAxis } =
+      await ratingRepo.recordRating({
+        slotId,
+        raterId: raterUserId,
+        rateeId,
+        score: overallScore,
+        scoreAgain,
+        scoreTalk,
+        scoreManner,
+        noShowReport: noShowReport ?? false,
+        comment: comment ?? null,
+      });
 
-    // 評価確定 → 被評価者の Profile 集計を更新 → 優良バッジ自動付与判定。
-    // 順序重要: 集計更新が先（badge-service は Profile.ratingAvg/ratingCount/attendedCount
-    // を読んで qualifiesForPremium を判定するため）。バッジ付与は冪等。
-    await repo.profiles.setRatingSummary(rateeId, {
-      avg: rateeAggregate.avg,
-      count: rateeAggregate.count,
+    // 評価確定 → 被評価者の Profile 多軸集計を更新 → 優良バッジ自動付与判定。
+    // 順序重要: 集計更新が先（badge-service は Profile.ratingAvg(=overall)/ratingCount/
+    // attendedCount を読んで qualifiesForPremium を判定するため）。バッジ付与は冪等。
+    // setMultiAxisSummary は overall→ratingAvg・軸別→scoreXxxAvg・count→ratingCount を書く。
+    await repo.profiles.setMultiAxisSummary(rateeId, {
+      again: rateeMultiAxis.again,
+      talk: rateeMultiAxis.talk,
+      manner: rateeMultiAxis.manner,
+      overall: rateeMultiAxis.overall,
+      count: rateeMultiAxis.count,
     });
     await evaluateAndGrantOnRating(rateeId);
+
+    // S8: no-show 報告があれば、保存後に確定判定（2人以上）→ 罰金課金（冪等）。
+    // 報告が無い評価では集計しても確定しないが、報告込み評価のときだけ評価する
+    // （無駄な集計を避ける。確定の冪等は noshow-service が担保）。
+    let noShow: NoShowOutcome | null = null;
+    if (noShowReport) {
+      const r = await evaluateNoShowForRatee(slotId, rateeId);
+      noShow = {
+        reported: true,
+        confirmed: r.confirmed,
+        charged: r.charged,
+      };
+    }
 
     return {
       ok: true,
@@ -183,18 +261,39 @@ export async function submitRating(input: {
         createdAt: rating.createdAt.toISOString(),
       },
       summary: { avg: rateeAggregate.avg, count: rateeAggregate.count },
+      multiAxis: {
+        again: rateeMultiAxis.again,
+        talk: rateeMultiAxis.talk,
+        manner: rateeMultiAxis.manner,
+        overall: rateeMultiAxis.overall,
+        count: rateeMultiAxis.count,
+      },
+      noShow,
     };
   } catch (err) {
     if (err instanceof DuplicateRatingError) {
-      return { ok: false, reason: "already_rated", rating: null, summary: null };
+      return fail("already_rated");
     }
     throw err;
   }
 }
 
-/** 自分の受領評価サマリ（GET /api/ratings/received/summary）。IDOR: 自分の集計のみ。 */
-export async function getReceivedSummary(userId: string): Promise<RatingSummary> {
+/**
+ * 自分の受領評価サマリ（GET /api/ratings/received/summary）。IDOR: 自分の集計のみ。
+ * S8: 3軸（again/talk/manner）+ 総合(overall) + 件数。後方互換のため avg(=overall) も返す。
+ */
+export async function getReceivedSummary(
+  userId: string
+): Promise<MultiAxisRatingSummary & { avg: number }> {
   const ratingRepo = getRatingRepo();
-  const agg = await ratingRepo.getRatingSummary(userId);
-  return { avg: agg.avg, count: agg.count };
+  const agg = await ratingRepo.getMultiAxisSummary(userId);
+  return {
+    again: agg.again,
+    talk: agg.talk,
+    manner: agg.manner,
+    overall: agg.overall,
+    count: agg.count,
+    // 後方互換: 旧クライアントが参照する avg は総合(overall)と同値。
+    avg: agg.overall,
+  };
 }

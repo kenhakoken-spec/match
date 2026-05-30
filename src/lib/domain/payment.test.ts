@@ -10,7 +10,12 @@
 // =============================================================================
 
 import { describe, it, expect } from "vitest";
-import { computeFee, DEFAULT_FEE_MALE_JPY } from "./payment";
+import {
+  computeFee,
+  DEFAULT_FEE_MALE_JPY,
+  penaltyAmountJpy,
+  NO_SHOW_PENALTY_JPY,
+} from "./payment";
 
 const FEE = 2000;
 
@@ -127,5 +132,21 @@ describe("computeFee — 防御的入力（不正値）", () => {
     expect(
       computeFee({ gender: "male", pastAcceptedCount: -1, feeMaleJpy: FEE }).reason
     ).toBe("male_paid");
+  });
+});
+
+describe("penaltyAmountJpy — ドタキャン罰金（S8 spec 要望5）", () => {
+  it("定数 NO_SHOW_PENALTY_JPY は ¥5,000", () => {
+    expect(NO_SHOW_PENALTY_JPY).toBe(5000);
+  });
+
+  it("penaltyAmountJpy() は 5000 を返す", () => {
+    expect(penaltyAmountJpy()).toBe(5000);
+  });
+
+  it("参加費(computeFee)とは独立＝性別/参加歴に依らず一律", () => {
+    // 参加費の既定(2000)とは別額であることを確認（混同防止）。
+    expect(penaltyAmountJpy()).not.toBe(DEFAULT_FEE_MALE_JPY);
+    expect(penaltyAmountJpy()).toBe(5000);
   });
 });
