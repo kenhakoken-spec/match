@@ -1,0 +1,22 @@
+---
+name: feedback-verification-trust
+description: Verification (tsc/build/test/curl) can give false signals from staleness, dev-cache, or batch cancellation — run gates fresh, foreground, one-per-turn
+metadata:
+  type: feedback
+---
+
+Three distinct "false signal" traps observed building S1 (2026-05-30), each able to flip a result:
+
+1. **Stale build/typecheck signal.** A verification command (tsc / vitest / next build) launched in the SAME tool batch as the source Writes, or as a background job, can run against an intermediate filesystem state. A backgrounded `tsc --noEmit` reported `EXIT=0` while a foreground `tsc` on the same tree reproducibly found a real `TS2322`. The later foreground run on settled files was authoritative. (Spurious variant: a foreground `tsc` once reported `TS6053 .next/types/*.ts not found` from a half-deleted `.next`; a `next build` regenerates those types and clears it.)
+
+2. **Stale `next dev` runtime cache.** `next dev` hot-reload served an OLD transpile of a pure function: `/api/me` returned `canApplyReason:"profile_required"` for a user with `identity:null`, when current source (and the passing unit tests) return `identity_required` first. Kill server + `rm -rf .next` + `npm run build` + restart made the live API match source. **A `next dev` response is NOT authoritative for logic correctness — fresh unit tests against source are.** If a curl result contradicts a unit-tested pure fn, suspect the cache before concluding it is a code bug.
+
+3. **Batch cancellation from a nonzero first command.** If the FIRST Bash call in a parallel tool batch exits nonzero, the ENTIRE batch is cancelled (sibling Bash/Read/Edit/Write rolled back). This wasted many turns. Worst offender: **`pkill -f "next dev"` kills its own parent shell** (the command string itself contains "next dev") → exit 144 → batch cancelled. `pkill` returning 1 (no match) and `pkill -9` (SIGKILL appears sandbox-blocked → exit 1) also trip it. **Stop a dev server by port with `fuser -k 3100/tcp` — self-safe, returns 0.** Run lifecycle commands in their own isolated call, never batched.
+
+**Empty-output degradation workaround (important):** when Bash stops returning stdout (the empty-output mode in [[project-schema-validation]]), commands STILL execute and Write/Read still work. Redirect the whole command to a temp file (`{ ...; } > /tmp/out.txt 2>&1`) and `Read` that file to recover the output. This let the full curl E2E + security suite be captured and verified despite a dead stdout channel.
+
+**WSL `/mnt/c` makes `next build` flaky at late filesystem-read steps (S2, 2026-05-30).** The repo lives on `/mnt/c/...` (Windows DrvFs). `next build` repeatedly FAILED with `ENOENT` on a file it had *just written* — first `.next/build-manifest.json` (Collecting page data), then `.next/server/pages/_document.js.nft.json` (Collecting build traces) — a *different* late step each run, the signature of a DrvFs write→read race, NOT a code error. In every failing run "✓ Compiled successfully" + "checking validity of types" had already passed, so app code was fine. **The 3rd identical `rm -rf .next && npm run build` succeeded: BUILD_RC=0, `.next/BUILD_ID` present, full route table printed.** How to apply: if `next build` dies with ENOENT on a `.next/**` manifest/`.nft.json` after a clean compile+typecheck, treat it as the WSL FS race and just retry `rm -rf .next && npm run build` (2-3x). Only conclude a real build break if the failure is a `Type error`/`error TS`/module-resolution error in the "checking validity of types" phase, or if retries fail at the *same* deterministic point. (If it never clears, building from a Linux-native ext4 path like `~/` avoids DrvFs entirely.)
+
+**Why:** Fabricated/false PASS is the single worst violation in this project; completion criteria require pasting *real* command output. A green-but-stale result reported as PASS is effectively a fake PASS.
+
+**How to apply:** Run FINAL gates (tsc rc0 / test FAIL=0 / build exit0 / curl) **fresh, foreground, ONE isolated Bash call per turn**, AFTER all edits land. Clean curl E2E recipe: `fuser -k <port>/tcp` → `rm -rf .next` → `npm run build` (regenerates types + warms cache) → start `next dev` background → poll `curl` until 200 (WSL first-boot ~16-20s; allow 90s) → run flows (redirect to file if stdout is dead) → `fuser -k <port>/tcp` teardown → confirm `down`. When two runs disagree, the later run against current disk (or the unit test) wins; find the root cause. Related: [[project-schema-validation]].

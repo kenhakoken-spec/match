@@ -1,0 +1,72 @@
+{
+  "results": [
+    {
+      "id": "S1",
+      "name": "U-00 login-button -> onboarding",
+      "pass": true,
+      "detail": "navigated to http://localhost:3300/onboarding",
+      "shot": "/mnt/c/tools/matching-app/screenshots/s2/e2e/S1-u-00-login-button-onboarding.png"
+    },
+    {
+      "id": "S2",
+      "name": "onboarding consent + next -> identity",
+      "pass": true,
+      "detail": "advanced 2 slides, consent checked, navigated to http://localhost:3300/identity",
+      "shot": "/mnt/c/tools/matching-app/screenshots/s2/e2e/S2-onboarding-consent-next-identity.png"
+    },
+    {
+      "id": "S3",
+      "name": "U-12 identity submit -> pending",
+      "pass": true,
+      "detail": "pending shown (\"◷\n確認中\", url=http://localhost:3300/identity/status)",
+      "shot": "/mnt/c/tools/matching-app/screenshots/s2/e2e/S3-u-12-identity-submit-pending.png"
+    },
+    {
+      "id": "S4",
+      "name": "admin approve identity",
+      "pass": true,
+      "detail": "approved myId=c5a249da269bd385909721d71 identityId=cac1d9bac7af43411c023ad44",
+      "shot": "/mnt/c/tools/matching-app/screenshots/s2/e2e/S4-admin-approve-identity.png"
+    },
+    {
+      "id": "S5",
+      "name": "profile-submit (18+)",
+      "pass": true,
+      "detail": "profile saved, now at http://localhost:3300/mypage",
+      "shot": "/mnt/c/tools/matching-app/screenshots/s2/e2e/S5-profile-submit-18.png"
+    },
+    {
+      "id": "S6",
+      "name": "U-04 browse slot-list non-empty",
+      "pass": true,
+      "detail": "slot-card count = 3 (non-empty)",
+      "shot": "/mnt/c/tools/matching-app/screenshots/s2/e2e/S6-u-04-browse-slot-list-non-empty.png"
+    },
+    {
+      "id": "S7",
+      "name": "U-05 slot detail apply-button enabled",
+      "pass": true,
+      "detail": "apply-button enabled at http://localhost:3300/slots/seed-slot-normal (checked 0 blocked first)",
+      "shot": "/mnt/c/tools/matching-app/screenshots/s2/e2e/S7-u-05-slot-detail-apply-button-enabled.png"
+    },
+    {
+      "id": "S8",
+      "name": "apply -> confirm sheet -> submit",
+      "pass": true,
+      "detail": "apply confirmed (boxes=2, dialogClosed=false, url=http://localhost:3300/slots/seed-slot-normal)",
+      "shot": "/mnt/c/tools/matching-app/screenshots/s2/e2e/S8-apply-confirm-sheet-submit.png"
+    },
+    {
+      "id": "S9",
+      "name": "/applications shows application-row",
+      "pass": false,
+      "detail": "no application-row after applying",
+      "url": "http://localhost:3300/applications",
+      "shot": "/mnt/c/tools/matching-app/screenshots/s2/e2e/S9-applications-shows-application-row-FAIL.png",
+      "html": "/mnt/c/tools/matching-app/e2e/_artifacts/S9-applications-shows-application-row-FAIL.html"
+    }
+  ],
+  "pass": 8,
+  "fail": 1,
+  "slotCardCount": 3
+}

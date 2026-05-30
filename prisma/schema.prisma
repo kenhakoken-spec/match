@@ -1,0 +1,474 @@
+// =============================================================================
+// matching-app — Prisma schema (S0 draft / design only)
+// 合コン型グループマッチング on LINE (LIFF) — 3対3 = 6人 / チャット無し /
+// 会場は運営が手動手配して6人へLINE通知 / 本人認証必須 / Stripe従量課金 /
+// 相互評価 + 優良バッジ + 限定イベント(20代限定/バッジ限定)
+//
+// 正典: docs/00_master_plan.md (最終更新 2026-05-30)
+// 本ファイルはS0設計の草案であり、マイグレーション実行・本実装はS1以降で行う。
+//
+// 検証: `prisma validate` を通すことのみが本ファイルの責務。
+// DB接続は不要(validateはschemaの構文/整合のみを検査する)。
+//
+// セキュリティ最優先(master_plan §9):
+//  - PIIは最小権限・暗号化・最小保持。身分証画像は承認後に削除(blobRef=null化)。
+//  - 機微属性(身分証/生年月日/写真)はマッチングに不要な経路から引かない。
+//  - カード情報は自前保持しない(Stripe に委譲。stripePaymentIntentId のみ保持)。
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Vercel Postgres (Neon) を想定。実値は .env (git管理外) に置く。
+  // 例: DATABASE_URL="postgresql://...?sslmode=require"
+  //     DIRECT_URL は Neon の非プール接続(マイグレーション用)。
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// ENUMS — 状態語彙を型で固定し、不正値混入を防ぐ。
+// =============================================================================
+
+/// ユーザー権限。admin は運営(枠作成・本人認証審査・会場確定・通知発火)を行う。
+enum Role {
+  user
+  admin
+}
+
+/// アカウント状態。停止/退会を表現(規約違反・低評価対応の余地)。
+enum UserStatus {
+  active
+  suspended
+  withdrawn
+}
+
+/// 性別。3対3の定員管理 + 課金(男のみ)に使う(MVPは male/female の2値)。
+enum Gender {
+  male
+  female
+}
+
+/// 東京主要エリア(初期は限定)。enum固定で検索/集計/通知文面を一貫させる。
+enum Area {
+  ebisu // 恵比寿
+  ikebukuro // 池袋
+  ginza // 銀座
+}
+
+/// 本人認証の状態(出会い系規制法対応 + 年齢確認を兼ねる)。
+/// pending  : 身分証提出済み・運営目視審査待ち
+/// approved : 承認(18歳以上を確認)。**承認後 blobRef を null 化し画像実体を削除**
+/// rejected : 却下(再提出が必要)
+enum IdentityStatus {
+  pending
+  approved
+  rejected
+}
+
+/// 提出された公的身分証の種別(目視審査の補助)。
+enum IdDocType {
+  drivers_license // 運転免許証
+  passport // パスポート
+  my_number_card // マイナンバーカード(番号部分はマスク提出を要請)
+  health_insurance // 健康保険証
+  residence_card // 在留カード
+}
+
+/// 枠(Slot)の状態遷移。
+/// open      : 募集中(男女いずれか定員未充足)
+/// filled    : 男3/女3が揃った(成立条件充足)。会場手配/決済の段階。
+/// confirmed : 運営が会場を入力し確定。6人へ通知する。
+/// done      : 開催完了(当日終了後。評価フェーズへ)。
+/// canceled  : 運営判断で中止(定員割れ/会場不可 等)。
+enum SlotStatus {
+  open
+  filled
+  confirmed
+  done
+  canceled
+}
+
+/// 応募(Application)の状態。
+/// applied  : 応募受付(枠が open の間)。
+/// accepted : 成立メンバーとして確定。
+/// canceled : ユーザー取消 or 運営による除外。
+enum ApplicationStatus {
+  applied
+  accepted
+  canceled
+}
+
+/// 成立(Match)の進行(Slotより詳しい会場手配〜通知)。
+/// pending_venue : 成立したが会場未定(運営の会場入力待ち)。
+/// venue_set     : 会場入力済み(まだ通知前)。
+/// notified      : 6人へLINE通知送信済み。
+/// canceled      : 中止。
+enum MatchStatus {
+  pending_venue
+  venue_set
+  notified
+  canceled
+}
+
+/// 決済(Payment)の状態。Stripe PaymentIntent に追随する。
+/// 男性のみ・有料回のみ作成(女性/初回無料は Payment を作らない or amount=0 で記録)。
+/// requires_capture : 与信確保(成立確定まで capture を遅延する方式の場合)
+/// 詳細フローは payment.md 参照。
+enum PaymentStatus {
+  created // PaymentIntent 作成
+  requires_action // 3DS等の追加認証が必要
+  requires_capture // 与信確保(マニュアルキャプチャ待ち)
+  succeeded // 支払い完了(キャプチャ済み)
+  canceled // 取消(不成立など。課金しない)
+  refunded // 返金
+  failed // 失敗
+}
+
+/// 通知ログ(NotificationLog)の種別。
+enum NotificationType {
+  identity_approved // 本人認証 承認のお知らせ
+  identity_rejected // 本人認証 却下(再提出依頼)
+  match_to_admin // 成立を運営へ知らせる内部通知
+  payment_request // (男性)決済のお願い(成立後)
+  venue_to_member // 会場確定を6人へ(日時/エリア/店名/URL/予約名/集合)
+  slot_canceled // 中止のお知らせ
+  rating_request // イベント後の相互評価のお願い
+  badge_granted // 優良バッジ付与のお知らせ
+  reminder // 開催前リマインド(将来)
+}
+
+/// 通知送信の結果。
+enum NotificationStatus {
+  pending
+  sent
+  failed
+}
+
+/// バッジ種別。MVPは premium(優良) のみ。
+enum BadgeType {
+  premium // 優良(高評価×複数回参加で付与)
+}
+
+// =============================================================================
+// CORE MODELS
+// =============================================================================
+
+/// アプリ利用者。LINEログインで一意化(lineUserId が自然キー)。
+/// PII最小権限: ここには識別子と権限/状態のみ。機微属性は別テーブルに分離。
+model User {
+  id          String     @id @default(cuid())
+  /// LINE の userId(Uxxxx...)。LINEログイン検証後にのみ確定する不変キー。
+  /// 個人特定子のため最小権限。APIレスポンス/JWT/ログに出さない。
+  lineUserId  String     @unique
+  /// 表示名(LINEプロフィール由来)。表示用途のみ。任意。
+  displayName String?
+  role        Role       @default(user)
+  status      UserStatus @default(active)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // relations
+  profile         Profile?
+  identity        IdentityVerification?
+  applications    Application[]
+  payments        Payment[]
+  notifications   NotificationLog[]
+  badges          Badge[]
+  ratingsGiven    Rating[]              @relation("ratingsGiven")
+  ratingsReceived Rating[]              @relation("ratingsReceived")
+  // admin が審査/付与した監査の逆引きは reviewedBy/grantedBy(String)で表現(FKは張らない)
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+/// プロフィール。User と1:1。マッチングに必要な属性 + 評価集計を集約。
+/// gender はここを正とし、Application.gender はスナップショットで冗長保持する。
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  gender Gender
+  /// 生年月日。機微情報。年齢は保存せず誕生日から都度算出(陳腐化防止+PII最小化)。
+  /// 18+判定(本人認証で確認)と 20代限定イベント判定の双方に使う。
+  birthdate DateTime
+
+  /// プロフィール写真URL(Vercel Blob・アクセス制限)。実体はBlob、ここは参照のみ。
+  photoUrl String?
+  /// 自己紹介。短文。サニタイズ前提(XSS/制御文字対策はアプリ層)。
+  bio      String? @db.VarChar(500)
+
+  /// 希望エリア(複数可)。枠レコメンド/フィルタに使う。
+  areaPref Area[]
+
+  // --- 評価集計(Rating から導出してキャッシュ。正本は Rating 群) ---
+  /// 平均評価(0.0〜5.0)。Rating 追加時に再計算。
+  ratingAvg   Float @default(0)
+  /// 受領した評価件数。
+  ratingCount Int   @default(0)
+  /// 開催完了(done)に参加し成立した回数の累計。バッジ判定の入力。
+  attendedCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gender])
+  @@map("profiles")
+}
+
+/// 本人認証(公的身分証アップロード→運営目視審査→承認)。User と1:1。必須ゲート。
+/// **未認証(approved以外)のユーザーは枠応募不可**(アプリ層でゲーティング)。
+/// 年齢確認(18+)を兼ねる。承認後は身分証画像を削除し blobRef を null にする(PII最小化)。
+model IdentityVerification {
+  id     String         @id @default(cuid())
+  userId String         @unique
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  docType IdDocType
+  status  IdentityStatus @default(pending)
+
+  /// 身分証画像のストレージ参照(Vercel Blob・アクセス制限)。
+  /// **審査用の一時保持**。approved になったら実体を削除し null をセットする。
+  /// rejected でも再提出に備え運用ポリシーで早期削除(詳細は auth-flow.md)。
+  blobRef String?
+  /// 目視審査で確認した生年月日(任意・確認補助)。正本は Profile.birthdate。
+  /// 18+/20代判定は Profile.birthdate を使う。ここは審査メモ的な確認値。
+  dobChecked DateTime?
+
+  /// 審査した運営(admin)の userId。監査用(FKは張らずStringで保持)。
+  reviewedBy String?
+  reviewedAt DateTime?
+  /// 却下理由など(個人情報を含めない短文)。
+  reviewNote String? @db.VarChar(280)
+  /// 画像を削除した日時(PII削除の監査記録)。
+  imageDeletedAt DateTime?
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@map("identity_verifications")
+}
+
+/// 枠(Slot) = 「日時 × エリア」。運営(admin)が用意。男女定員(既定3)。
+/// 参加条件(限定イベント): minAge/maxAge(例 20代限定=25〜29 等), requiresBadge。
+model Slot {
+  id                String     @id @default(cuid())
+  /// 開催日時(開始)。UTC保存・JST表示(アプリ層)。
+  datetimeStart     DateTime
+  area              Area
+  /// 性別ごとの定員。MVPは3固定だが将来調整の余地として列に持つ。
+  capacityPerGender Int        @default(3)
+  status            SlotStatus @default(open)
+
+  // --- 参加条件(限定イベント。null=制限なし) ---
+  /// 参加可能な最低年齢(含む)。例: 20代限定なら minAge=20。
+  minAge        Int?
+  /// 参加可能な最高年齢(含む)。例: 20代限定なら maxAge=29。
+  maxAge        Int?
+  /// true の場合、優良バッジ(premium)保有者のみ応募可。
+  requiresBadge Boolean @default(false)
+
+  /// 参加費(男性, 円)。MVPは一律2000の想定だが枠ごとに持てるよう列化。
+  /// 実際の課金可否は「男性 && 非初回」で決まる(payment.md)。
+  feeMale Int @default(2000)
+
+  /// 運営メモ(任意)。個人情報は入れない運用。
+  note String? @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relations
+  applications Application[]
+  match        Match?
+  ratings      Rating[]
+
+  // 枠一覧は「open かつ 日時昇順」で引くのが主用途。
+  @@index([status, datetimeStart])
+  @@index([area, datetimeStart])
+  @@map("slots")
+}
+
+/// 応募(Application)。User × Slot の参加表明。
+/// (slotId,userId) を一意制約にして二重応募を禁止。gender は応募時点のスナップショット。
+/// paymentId: 男性有料回で発生した決済への参照(女性/初回無料は null)。
+model Application {
+  id     String            @id @default(cuid())
+  slotId String
+  slot   Slot              @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  userId String
+  user   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 応募時点の性別スナップショット。定員(男3/女3)判定はこの値を数える。
+  gender Gender
+  status ApplicationStatus @default(applied)
+
+  /// 紐づく決済(男性有料回のみ)。1応募:1決済。女性/初回無料は null。
+  paymentId String?  @unique
+  payment   Payment? @relation(fields: [paymentId], references: [id])
+
+  appliedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 同一ユーザーの同一枠への重複応募を禁止。
+  @@unique([slotId, userId])
+  /// 成立判定の主クエリ「この枠の、性別ごと、applied件数」。
+  @@index([slotId, gender, status])
+  @@index([userId, status])
+  @@map("applications")
+}
+
+/// 成立(Match)。Slot:Match = 1:1。会場(店名/URL/予約名)は成立後に運営が入力。
+model Match {
+  id     String      @id @default(cuid())
+  slotId String      @unique
+  slot   Slot        @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  status MatchStatus @default(pending_venue)
+
+  /// 成立(男女定員充足)を検知した日時。
+  matchedAt DateTime @default(now())
+
+  // --- 会場情報(運営が手動入力。会場DB/予約連携は持たない) ---
+  venueName       String? // 確定時に必須化(アプリ層)
+  venueUrl        String? // 予約URL(任意)
+  reservationName String? // 当日名乗る予約名
+  meetingPlace    String? @db.VarChar(280) // 集合場所/補足
+  confirmedAt     DateTime?
+
+  // --- 通知 ---
+  notifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("matches")
+}
+
+/// 決済(Payment)。Stripe PaymentIntent に対応。
+/// **男性の有料回のみ**作成する(女性は常に無料・男性初回は無料=Payment不要 or amount=0)。
+/// **不成立時は課金しない**(与信のみ→不成立で cancel、または成立後に課金: payment.md)。
+/// カード情報は自前保持しない。Stripe の ID/状態だけを保持する。
+model Payment {
+  id     String        @id @default(cuid())
+  userId String
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 課金対象の枠(トレース用)。応募単位の課金だが Slot 参照も持つ。
+  slotId String?
+
+  amount      Int           @default(2000) // 最小通貨単位(円)。初回無料は別途 isFirstFree で表現
+  currency    String        @default("JPY")
+  /// この決済が「初回無料」適用かどうか(記録用。true の場合 amount は実課金されない)。
+  isFirstFree Boolean       @default(false)
+  status      PaymentStatus @default(created)
+
+  provider String @default("stripe")
+  /// Stripe PaymentIntent の ID(pi_...)。Webhook で status を突合・更新。
+  stripePaymentIntentId String? @unique
+  /// Stripe Customer ID(cus_...)。リピート課金のカード再利用に使う(任意)。
+  stripeCustomerId      String?
+
+  paidAt     DateTime?
+  refundedAt DateTime?
+  /// 失敗/取消理由の要約(個人情報・カード情報を含めない)。
+  note       String?   @db.VarChar(280)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 1応募:1決済(Application.paymentId 側が unique 参照)
+  application Application?
+
+  @@index([userId, status])
+  @@index([status])
+  @@map("payments")
+}
+
+/// 相互評価(Rating)。イベント(=done になった Slot)後、参加者同士で評価する。
+/// raterId(評価する人) × rateeId(評価される人) × slotId(どのイベントか) を一意に。
+/// 集計は Profile.ratingAvg / ratingCount に反映する。
+model Rating {
+  id      String @id @default(cuid())
+  slotId  String
+  slot    Slot   @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  raterId String
+  rater   User   @relation("ratingsGiven", fields: [raterId], references: [id], onDelete: Cascade)
+  rateeId String
+  ratee   User   @relation("ratingsReceived", fields: [rateeId], references: [id], onDelete: Cascade)
+
+  /// 評価スコア(1〜5)。範囲はアプリ層で検証(Zod)。
+  score   Int
+  /// 任意コメント。サニタイズ前提。被評価者には匿名/集計で見せる運用も検討。
+  comment String? @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+
+  /// 同一イベントで同一相手を二重評価しない。
+  @@unique([slotId, raterId, rateeId])
+  /// 被評価者の集計再計算で使う。
+  @@index([rateeId])
+  @@index([slotId])
+  @@map("ratings")
+}
+
+/// バッジ(Badge)。MVPは premium(優良)のみ。
+/// 高評価×複数回参加で付与(判定ロジックは badge.md / matching-logic.md)。
+/// 限定イベント(Slot.requiresBadge=true)の応募可否に使う。
+model Badge {
+  id     String    @id @default(cuid())
+  userId String
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type BadgeType @default(premium)
+
+  grantedAt DateTime @default(now())
+  /// 付与した運営(admin)の userId(手動付与時)。自動付与は "system"。監査用。
+  grantedBy String?
+  /// 付与時の判定根拠スナップショット(例: {ratingAvg, ratingCount, attendedCount})。
+  /// 後から基準が変わっても「なぜ付与されたか」を再現できる。
+  criteriaSnapshot Json?
+
+  /// 同一ユーザーが同種バッジを重複保有しない。
+  @@unique([userId, type])
+  @@index([type])
+  @@map("badges")
+}
+
+/// 通知ログ(NotificationLog)。LINE Messaging API 送信の監査・再送判断。
+/// payload は送信スナップショット(Json)。過剰なPIIを残さない(運用情報に留める)。
+model NotificationLog {
+  id     String             @id @default(cuid())
+  /// 宛先ユーザー。運営宛(match_to_admin)は admin の userId を入れる。
+  userId String
+  user   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type   NotificationType
+  status NotificationStatus @default(pending)
+
+  /// 紐づく枠/成立(任意・トレース用)。FK制約は張らず緩く参照(ログの独立性)。
+  slotId  String?
+  matchId String?
+
+  /// 送信メッセージのスナップショット(JSON)。再送/監査用。PII最小化。
+  payload Json
+  /// LINE API のメッセージID/レスポンス識別子(あれば)。
+  providerMessageId String?
+  /// 失敗時のエラー要約(個人情報を含めない)。
+  error             String? @db.VarChar(500)
+
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type])
+  @@index([type, status])
+  @@map("notification_logs")
+}

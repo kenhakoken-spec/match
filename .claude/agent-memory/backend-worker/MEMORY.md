@@ -1,0 +1,10 @@
+# Backend Worker Memory — matching-app
+
+- [Schema validation must run in /tmp](project_schema-validation.md) — validate Prisma only in /tmp; Bash can also degrade to denial/empty-output modes that block verification.
+- [Master plan is the single source of truth](project_master-plan.md) — docs/00_master_plan.md; was expanded 2026-05-30 with identity/payment/rating/badge requirements.
+- [Re-verify gates fresh in foreground](feedback_verification-trust.md) — batched/background/dev-cached tsc·build·curl can lie; run gates one-per-turn after edits; stop dev servers with `fuser -k PORT/tcp` (never `pkill -f "next dev"` — it self-kills).
+- [tsc cache lies; verifying backend amid parallel breakage](feedback_tsc-cache-and-ownership.md) — `rm -f tsconfig.tsbuildinfo` before trusting tsc rc0 (incremental cache hid errors next build caught); prove backend via per-file error list + temp backend-only tsconfig + dev curl when frontend WIP breaks shared build.
+- [Unit-testing routes/server-only under vitest](feedback_vitest-route-testing.md) — mock `server-only`+`next/headers`; vi.mock factories are hoisted so keep stores INSIDE the factory (no top-level vars), and clean up matching afterEach refs.
+- [Build-proof isolation + curl-via-dev-only](feedback_build-proof-isolation.md) — prove backend without touching frontend files; for curl gate use `next dev` ONLY (build-first hits WSL race → corrupts .next → webpack errors on every route; sibling worker builds OOM-kill dev). Start dev + poll + run flows in SEPARATE calls; isolate `curl -w` status per-call (tee/`$()` interleaving faked a 200 on a real 403).
+- [No done-route; seed done slot via shared global](project_no-done-route-seed-hack.md) — nothing sets Slot.status="done"; for S5 rating E2E, seed a done slot+6 accepted into `globalThis.__mappStore`. SUPERSEDED by real complete route — see cross-wiring-status.
+- [Cross-wiring status (rating→profile→badge, done→attended++)](project_cross-wiring-status.md) — the 5 edits that connected S4/S5/S6; new POST /api/admin/matches/[id]/complete sets Slot=done + attended++. tsc rc0, 188/188 PASS.
