@@ -9,7 +9,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { devLogin } from "./_lib/api";
+import { lineLogin } from "./_lib/liff-login";
 import { Button } from "@/components/ui/Button";
 
 export function LoginScreen() {
@@ -18,10 +18,19 @@ export function LoginScreen() {
 
   async function handleLogin() {
     setLoading(true);
-    // Mock dev-login per contract §2 (POST /api/auth/dev-login). On failure the
-    // api client falls back to ok:true so the onboarding flow stays reachable.
-    await devLogin();
-    router.push("/onboarding");
+    // LINE(LIFF) ログインを試みる。NEXT_PUBLIC_LIFF_ID があれば LIFF で
+    // id_token を取得しサーバ検証(/api/auth/line)、無ければ dev-login にフォールバック。
+    // liff.login() はLINEログインへリダイレクトするため、その場合は戻ってこない。
+    const result = await lineLogin();
+    if (result.ok) {
+      router.push("/onboarding");
+    } else if (result.error === "redirecting_to_line_login") {
+      // LINEログインへ遷移中。ボタンは押下状態のまま（戻ってきたら再ログイン）。
+      return;
+    } else {
+      // トークン交換失敗等。ボタンを戻して再試行できるようにする。
+      setLoading(false);
+    }
   }
 
   return (

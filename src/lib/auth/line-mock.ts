@@ -60,38 +60,35 @@ export function verifyLineIdTokenMock(idToken: string): VerifiedLineToken | null
 }
 
 /**
- * 本番 LINE ID トークン検証(未実装)。
+ * 本番 LINE ID トークン検証（SEC-002: 実装済み）。
  *
- * SEC-002: 実モード(モック無効=本番)で呼ばれる検証本体。LINE チャネル接続時に
- * 以下を **必ず** 実装する。それまでは、なりすまし(任意の sub を信頼)を防ぐため
- * 黙ってモックへフォールバックせず {@link LineVerificationUnavailableError} を throw する。
+ * 実モード(モック無効=本番)で呼ばれる検証本体。LINE の verify API で署名・iss・
+ * aud(=Channel ID)・exp を検証し、検証済みの sub を返す（実装は line-verify.ts）。
+ * Channel ID 未設定など検証不能時は {@link LineVerificationUnavailableError} を
+ * throw（なりすまし防止のフェイルクローズ。モック検証へはフォールバックしない）。
  *
- * TODO(SEC-002 / LINEチャネル接続時に実装):
- *   1. LINE JWKS (https://api.line.me/oauth2/v2.1/certs) から公開鍵を取得し署名検証。
- *      （または verify エンドポイント https://api.line.me/oauth2/v2.1/verify を使用）
- *   2. aud === env.lineLoginChannelId (LINE Login Channel ID) を検証。
- *   3. iss === "https://access.line.me" を検証。
- *   4. exp 失効チェック(現在時刻 < exp)。
- *   5. 検証 OK の payload.sub を lineUserId として返す(payload.name を displayName に)。
+ * verify API 呼び出しのため async。動的 import で本ファイルの同期 import 連鎖
+ * （テストの server-only モック等）に影響を与えない。
  */
-export function verifyLineIdTokenReal(_idToken: string): VerifiedLineToken | null {
-  // 実検証は未実装。なりすまし防止のため、モックへフォールバックさせず明示エラー。
-  throw new LineVerificationUnavailableError(
-    "real LINE ID token verification is not implemented yet (SEC-002); " +
-      "connect the LINE channel and implement signature/aud/iss/exp verification"
-  );
+export async function verifyLineIdTokenReal(
+  idToken: string
+): Promise<VerifiedLineToken | null> {
+  const { verifyLineIdTokenViaApi } = await import("./line-verify");
+  return verifyLineIdTokenViaApi(idToken);
 }
 
 /**
- * モード別ディスパッチャ。モック有効(非production既定)はモック検証、
- * モック無効(本番)は実検証(未実装なら throw)。Route Handler はこれを呼ぶ。
+ * モード別ディスパッチャ。モック有効(非production既定)はモック検証(同期)、
+ * モック無効(本番)は実検証(verify API・async)。Route Handler はこれを await する。
  */
-export function verifyLineIdToken(idToken: string): VerifiedLineToken | null {
+export async function verifyLineIdToken(
+  idToken: string
+): Promise<VerifiedLineToken | null> {
   if (isMockAuthEnabled()) {
     return verifyLineIdTokenMock(idToken);
   }
-  // SEC-002: 本番実モードでは実検証へ。未実装の現状は throw され、
-  // route 側で 503 として扱われる(モック検証にはフォールバックしない)。
+  // SEC-002: 本番実モードでは LINE verify API で検証（line-verify.ts）。
+  // 検証不能(Channel ID 未設定/通信失敗)は throw され、route 側で 503 になる。
   return verifyLineIdTokenReal(idToken);
 }
 

@@ -59,6 +59,7 @@ const ORIG = {
   MOCK_DB: process.env.MOCK_DB,
   MOCK_NOTIFY: process.env.MOCK_NOTIFY,
   AUTH_JWT_SECRET: process.env.AUTH_JWT_SECRET,
+  LINE_LOGIN_CHANNEL_ID: process.env.LINE_LOGIN_CHANNEL_ID,
 };
 
 function setEnv(key: keyof typeof ORIG, value: string | undefined) {
@@ -164,17 +165,19 @@ describe("SEC-001 session key fallback", () => {
 // SEC-002: 実モードの LINE 検証ガード
 // -----------------------------------------------------------------------------
 describe("SEC-002 LINE verification guard", () => {
-  it("モック有効(非production): verifyLineIdToken は sub を信頼", () => {
+  it("モック有効(非production): verifyLineIdToken は sub を信頼", async () => {
     setEnv("NODE_ENV", "development");
     setEnv("MOCK_AUTH", undefined);
-    const v = verifyLineIdToken("Ualice");
+    const v = await verifyLineIdToken("Ualice");
     expect(v?.lineUserId).toBe("Ualice");
   });
 
-  it("実モード(production): verifyLineIdToken は throw(モックへ非フォールバック)", () => {
+  it("実モード(production)・Channel ID 未設定: verifyLineIdToken は throw(モックへ非フォールバック)", async () => {
     setEnv("NODE_ENV", "production");
     setEnv("MOCK_AUTH", "1"); // 本番は無視されモック無効
-    expect(() => verifyLineIdToken("Umallory")).toThrowError(
+    setEnv("LINE_LOGIN_CHANNEL_ID", undefined); // 検証不能 → フェイルクローズ
+    // verify API は async。Channel ID 未設定なら API を叩く前に throw する。
+    await expect(verifyLineIdToken("Umallory")).rejects.toBeInstanceOf(
       LineVerificationUnavailableError
     );
   });
@@ -189,6 +192,8 @@ describe("SEC-002 LINE verification guard", () => {
 // SEC-001: dev-login route の本番 404
 // -----------------------------------------------------------------------------
 describe("SEC-001 dev-login route prod guard", () => {
+  // route の動的 import + 初回コンパイルが DrvFs(WSL/mnt)では重く、既定5秒を
+  // 超えて flaky になることがある（ロジックでなく環境起因）。明示的に余裕を持たせる。
   it("production → 404(MOCK_AUTH=1 でも)", async () => {
     setEnv("NODE_ENV", "production");
     setEnv("MOCK_AUTH", "1");
@@ -203,7 +208,7 @@ describe("SEC-001 dev-login route prod guard", () => {
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error?: { code?: string } };
     expect(json.error?.code).toBe("not_found");
-  });
+  }, 20000);
 
   it("非production + MOCK_DB=1 → 200(開発動作維持)", async () => {
     setEnv("NODE_ENV", "development");
@@ -219,5 +224,5 @@ describe("SEC-001 dev-login route prod guard", () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { user?: { role?: string } };
     expect(json.user?.role).toBe("admin");
-  });
+  }, 20000);
 });

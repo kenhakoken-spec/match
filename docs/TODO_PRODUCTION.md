@@ -26,12 +26,14 @@
   - [ ] prisma-repo の実DB結線を実データで一通り検証（応募→成立→決済→通知→評価→バッジ）。
 - **受入条件**: `MOCK_DB` 未設定で全コアループが実DB上で通る。
 
-### A-2. LINE Login / LIFF（実トークン検証の実装） 🔴必須・SEC-002
-- **現状**: `src/lib/auth/line-mock.ts:78` `realVerify` が**未実装で throw**（`LineVerificationUnavailableError` → 503）。本番でなりすましを防ぐためモックへフォールバックしない設計（`src/app/api/auth/line/route.ts:3`）。
-- **作業**:
-  - [ ] LINE ID トークンの**実検証**を実装：署名検証・`aud`=Channel ID・`iss`=`https://access.line.me`・`exp` 期限の確認（`src/lib/auth/line-mock.ts:63-79` のTODO箇所）。
-  - [ ] `NEXT_PUBLIC_LIFF_ID` / `LINE_LOGIN_CHANNEL_ID` / `LINE_LOGIN_CHANNEL_SECRET` を設定（`.env.example:20-22`）。※ secret は `.env.local`/Vercel のみ、コミット厳禁。
-- **受入条件**: 実モードで正規トークンは認証成功・改竄/期限切れは 401。`security-fix.test.ts` の SEC-002 系が実検証版でも通る。
+### A-2. LINE Login / LIFF（実トークン検証） ✅実装済み（2026-05-31）— 残りは設定のみ
+- **完了**:
+  - [x] LINE ID トークンの**実検証**を実装（`src/lib/auth/line-verify.ts`）：LINE verify API で `iss`=`https://access.line.me`・`aud`=Channel ID・`exp`・`sub` を検証。Channel ID 未設定は 503（フェイルクローズ）。`/api/auth/line` が `await verifyLineIdToken` で検証→セッション発行。+単体テスト7（`line-verify.test.ts`）。
+  - [x] **LIFFクライアント結線**（`src/app/_lib/liff-login.ts`＋`LoginScreen.tsx`）：`liff.init()`→未ログインなら`liff.login()`→`getIDToken()`→`POST /api/auth/line`。LIFF未設定/LINE外ブラウザは dev-login にフォールバック（本番は dev-login が 404）。
+- **残（殿の設定作業）**:
+  - [ ] LINEコンソールで **LIFF endpoint URL** にデプロイ先URLを登録（LIFFアプリ作成は前回取得済: LIFF ID `2010236765-saeVnKMD`）。
+  - [ ] `NEXT_PUBLIC_LIFF_ID` / `LINE_LOGIN_CHANNEL_ID` / `LINE_LOGIN_CHANNEL_SECRET` を Vercel 環境変数に設定（`.env.example`）。※ secret はコミット厳禁。
+- **受入条件**: LIFFで起動→「LINEではじめる」→LINEログイン→id_token をサーバ検証→本人としてセッション確立。正規トークンは成功・改竄/期限切れ/別チャネル宛は拒否（テスト済）。
 
 ### A-3. LINE Messaging API（通知の実送信） 🔴必須
 - **現状**: `MOCK_NOTIFY=1` でログのみ（`src/lib/notify-mock.ts`）。本番は実送信（`src/lib/env.ts:41`）。会場確定時に6名へ店名/予約URL/予約名を通知する経路。

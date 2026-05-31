@@ -8,7 +8,7 @@ S1+S2 セキュリティレビュー結果（2026-05-30, security-reviewer）。
 | ID | 重大度 | 概要 | 対応時期 | 状態 |
 |----|--------|------|----------|------|
 | SEC-001 | HIGH | モック群がフェイルオープン既定（本番env漏れでadmin乗っ取り） | **S2直後に即修正** | ✅FIXED (2026-05-30, env.ts集約フェイルクローズ+本番dev-login404, 実証curl(a)200/(b)(c)404, +単体テスト6+2) |
-| SEC-002 | HIGH | LINE実トークン検証が未実装（本番化ブロッカー） | **S2直後にガード追加**、実装はLINE接続時 | ✅FIXED (2026-05-30, 本番モードで実検証未実装なら503 throw=モック黙フォールバック禁止, 実装はLINE接続時TODO, +単体テスト3) |
+| SEC-002 | HIGH | LINE実トークン検証が未実装（本番化ブロッカー） | **S2直後にガード追加**、実装はLINE接続時 | ✅FIXED (2026-05-31, **実装完了**: `src/lib/auth/line-verify.ts` が LINE verify API で iss/aud(=Channel ID)/exp/sub を検証。Channel ID 未設定は503フェイルクローズ。`/api/auth/line` が await 検証→セッション発行。+単体テスト7。LIFFクライアント結線も実装(`src/app/_lib/liff-login.ts`)) |
 | SEC-003 | MED | CSRFが sameSite=lax のみ（Origin/Referer未検証） | S3（通知接続前） | ✅FIXED (2026-05-31, `src/middleware.ts`+`src/lib/security/origin.ts`。状態変更メソッドのみ Origin/Referer 検証・許可=同一オリジン+ALLOWED_ORIGINS・Bearer/webhook除外・本番はOrigin欠如を403・+23テスト) |
 | SEC-004 | MED | レート制限なし（総当たり/アップロード濫用/応募連打） | S3〜S4 | ✅FIXED (2026-05-31, `src/lib/security/rate-limit.ts` 固定窓(60s) IP×カテゴリ。auth20/identity10/venues-suggest10/apply30/他120・429+Retry-After・Bearer/webhook除外・+23テスト。多インスタンス本番はRedis等へ要差替=コメント明記) |
 | SEC-005 | MED | ファイル種別がMIME申告依存・空typeで素通り（マジックバイト未検証） | S4（実Blob接続時） | OPEN |

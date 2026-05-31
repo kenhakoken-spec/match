@@ -17,9 +17,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const parsed = lineLoginSchema.parse(body);
 
-    // モード別検証。モック有効(非production既定)=sub信頼 / モック無効(本番)=実検証。
-    // 本番で実検証未実装の場合は LineVerificationUnavailableError が投げられる。
-    const verified = verifyLineIdToken(parsed.idToken);
+    // モード別検証。モック有効(非production既定)=sub信頼 / モック無効(本番)=LINE verify API。
+    // 検証不能(Channel ID 未設定/通信失敗)は LineVerificationUnavailableError → 503。
+    const verified = await verifyLineIdToken(parsed.idToken);
     if (!verified) {
       return jsonError(401, "invalid_token", "invalid id token");
     }
