@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AuthError } from "@/lib/auth/guard";
+import { TriggerAuthError } from "@/lib/auth/trigger-auth";
 import { LineVerificationUnavailableError } from "@/lib/auth/line-mock";
 
 export function jsonOk<T>(data: T, status = 200): NextResponse {
@@ -29,6 +30,10 @@ export async function handle(fn: () => Promise<NextResponse>): Promise<NextRespo
     return await fn();
   } catch (err) {
     if (err instanceof AuthError) {
+      return jsonError(err.status, err.code, err.message);
+    }
+    // 本人認証 AI 判定のトリガージョブ認証（Bearer トークン）の失敗。
+    if (err instanceof TriggerAuthError) {
       return jsonError(err.status, err.code, err.message);
     }
     // SEC-002: 実トークン検証が未構成のとき。詳細はログのみ、レスポンスは汎用文言。

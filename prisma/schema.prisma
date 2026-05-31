@@ -464,6 +464,14 @@ model Payment {
   // 1応募:1決済(Application.paymentId 側が unique 参照)
   application Application?
 
+  // SEC-011: (枠 × ユーザー × 種別) で1件に制限。ドタキャン罰金(no_show_penalty)の
+  // **二重課金を DB レベルで防ぐ**バックストップ。in-memory は findBySlotUserAndType で
+  // 冪等だが、実DB(Prisma)では2人目の no-show 報告が並行すると二重 Payment 行になりうる。
+  // create 時に P2002(一意制約違反)を捕捉し既存行を返す冪等スキップに変換すること
+  // (rating-repo の P2002→DuplicateRatingError と同方針)。
+  // 注: slotId は nullable。Postgres は NULL を区別するため slotId=null の participation は
+  //     この制約の対象外（罰金は常に slotId を持つので実害なし）。
+  @@unique([slotId, userId, type])
   @@index([userId, status])
   @@index([status])
   @@map("payments")

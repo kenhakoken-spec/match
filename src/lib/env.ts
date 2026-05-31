@@ -74,6 +74,27 @@ export function isProduction(): boolean {
   return (process.env.NODE_ENV ?? "development") === "production";
 }
 
+/**
+ * 本人認証 AI 一次判定の**トリガージョブ用トークン**（モーニングレポートと同じトリガー駆動）。
+ *
+ * 本人認証の一次判定は API 同期呼び出しではなく、外部トリガーで起動するジョブ
+ * （`tools/ai-identity-trigger.mjs`）が「判定待ちキュー」を取得→判定→書き戻す方式。
+ * そのジョブ専用エンドポイント（ai-queue / ai-verdict）はユーザーセッションでなく
+ * このトークン（`Authorization: Bearer <token>`）で認証する。
+ *
+ * フェイルクローズ:
+ *  - 本番(production): `AI_TRIGGER_TOKEN` 未設定なら **null**（=エンドポイントは 503）。
+ *    予測可能な既定トークンで本番が開いてしまう事故を防ぐ。
+ *  - 非production: 未設定なら開発用既定（`dev-ai-trigger-token`）を許容し、ローカルで
+ *    トリガーフロー全体を動かせるようにする。env を設定すればそれが優先。
+ */
+export function aiTriggerToken(): string | null {
+  const fromEnv = process.env.AI_TRIGGER_TOKEN;
+  if (fromEnv && fromEnv.length > 0) return fromEnv;
+  if (isProduction()) return null; // フェイルクローズ
+  return "dev-ai-trigger-token";
+}
+
 // =============================================================================
 // RELEASE_MODE — リリース前の集客フェーズと本稼働を切り替える全体フラグ
 //   (01_s8_spec.md 要望3)。
