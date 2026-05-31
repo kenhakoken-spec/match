@@ -26,7 +26,7 @@ datasource db {
   // 例: DATABASE_URL="postgresql://...?sslmode=require"
   //     DIRECT_URL は Neon の非プール接続(マイグレーション用)。
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 // =============================================================================
