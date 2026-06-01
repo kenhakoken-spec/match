@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-hidden="true" focusable="false">
+  <!-- 小さな門(枝折戸)。「入口・はじまり」。線画。 -->
+  <path d="M14 52V20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M50 52V20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- 渡し木(屋根の桁) -->
+  <path d="M10 20h44" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M13 26h38" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.8"/>
+  <!-- 枝折戸の格子(半開きで奥が見える) -->
+  <path d="M20 50V30h11v20" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="M20 37h11M20 44h11M25.5 30v20" stroke="currentColor" stroke-width="1" opacity="0.75"/>
+  <path d="M14 52h36" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+</svg>

@@ -1,14 +1,16 @@
-// ComingSoon — 「リリースをお待ちください」待機画面の本体（01_s8_spec.md 要望3）。
+// ComingSoon — 「リリースをお待ちください」待機画面の本体（s9 §3.3 / 01_s8_spec 要望3）。
 //
-// design-system §0/§8 準拠:
-//   - 温かく編集的（雑誌の特集ページに置けるか）。生成りの地＋インクの文字。
-//   - 紫グラデ・ネオン・原色ブルーなし。絵文字の散りばめなし。煽りコピーなし。
-//   - 見出しは明朝（serif）、本文はゴシック（sans）。余白は広め。スマホ縦。
-//   - アクセント（テラコッタ）は控えめに1色だけ。
+// LoginScreen と双子の HAKO-NIWA(箱庭) LP。違いは CTA が「準備中」で、価値/流れは要点に圧縮。
+// design-system §0/§8 準拠: 温かく編集的・生成りの地+インクの文字・紫グラデやネオン無し・
+// 絵文字の散りばめ無し・煽りコピー無し。見出しは明朝、本文はゴシック、余白は広め。
 //
-// 純presentational（hooks/インタラクションなし）なので Server Component として
+// 純presentational(hooks/インタラクション無し)なので Server Component として
 // /coming-soon ページと ReleaseGate の両方から再利用できる。通知希望の入口は
-// 「準備中」の静かなプレースホルダに留める（偽の動作はさせない＝誠実）。
+// 「準備中」の静かなプレースホルダに留める(偽の動作はさせない＝誠実)。画像が無くても
+// 添景SVGとタイポで成立する(枠だけ残る事故ゼロ / s9 §3.4)。
+
+import { BrandLockup } from "@/components/brand/BrandLockup";
+import { BrandMotif } from "@/components/brand/BrandMotif";
 
 const AREAS = ["恵比寿", "池袋", "銀座"] as const;
 
@@ -19,37 +21,37 @@ export function ComingSoon() {
       className="flex min-h-[100dvh] flex-col justify-between px-6 pb-10 pt-16"
     >
       <div className="pt-8">
-        {/* 編集的マーク — U-00 と同じ控えめなダイヤ。光沢SaaSロゴにしない。 */}
-        <div
-          aria-hidden
-          className="mb-6 flex h-11 w-11 items-center justify-center rounded-md border border-line-200 text-accent-500"
-        >
-          <span className="text-lg leading-none">◇</span>
-        </div>
+        <BrandLockup />
 
-        <p className="font-serif text-[22px] font-semibold tracking-tight text-ink-900">
-          rendez
+        {/* ヒーロー: タグライン → 主見出し(明朝) → 箱庭の添景SVG */}
+        <p className="mt-10 font-sans text-[18px] font-bold leading-snug text-accent-600">
+          みんなが出会える場所
         </p>
-        <p className="mt-1 font-sans text-[13px] tracking-wide text-ink-500">
-          東京・恵比寿 / 池袋 / 銀座
-        </p>
-
-        <h1 className="mt-10 font-serif text-[28px] leading-[1.35] text-ink-900">
+        <h1 className="mt-3 font-serif text-[28px] leading-[1.35] text-ink-900">
           近日、はじまります。
         </h1>
-        <p className="mt-4 max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
-          rendez は、男女3人ずつ・計6人で会う、新しい合コンです。
+
+        <div className="mt-7 flex justify-center">
+          <BrandMotif
+            name="garden-plot"
+            accent="#C2703D"
+            className="h-auto w-full max-w-[20rem] text-line-200"
+          />
+        </div>
+
+        <p className="mt-7 max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
+          HAKO-NIWA（箱庭）は、男女3人ずつ・計6人で会う、安心できる出会いの場です。
           いまは公開の準備をしています。もうしばらくお待ちください。
         </p>
 
-        {/* サービス概要 — 事実ベースの3点。煽らない。 */}
+        {/* このサービスについて — 事実ベースの4点(安心行を追加して内容を立てる)。煽らない。 */}
         <dl className="mt-8 space-y-4 border-t border-line-100 pt-6">
           <div>
             <dt className="font-sans text-[12px] tracking-wide text-ink-500">
               会い方
             </dt>
             <dd className="mt-1 font-sans text-[15px] leading-7 text-ink-700">
-              3対3、計6人で集まります。会場はこちらで手配します。
+              3対3、計6人で会います。会場はこちらで手配します。
             </dd>
           </div>
           <div>
@@ -69,6 +71,14 @@ export function ComingSoon() {
           </div>
           <div>
             <dt className="font-sans text-[12px] tracking-wide text-ink-500">
+              安心
+            </dt>
+            <dd className="mt-1 font-sans text-[15px] leading-7 text-ink-700">
+              本人確認・評価で、場を整えます。
+            </dd>
+          </div>
+          <div>
+            <dt className="font-sans text-[12px] tracking-wide text-ink-500">
               公開
             </dt>
             <dd className="mt-1 font-sans text-[15px] leading-7 text-ink-700">
@@ -78,12 +88,15 @@ export function ComingSoon() {
         </dl>
       </div>
 
-      {/* 通知希望の入口プレースホルダ。まだ動かないことを誠実に伝える。 */}
+      {/* 通知希望の入口プレースホルダ。まだ動かないことを誠実に伝える(動かないものを動くように見せない)。 */}
       <div className="space-y-3">
         <div className="rounded-md border border-line-200 bg-bg-surface p-4">
-          <p className="font-sans text-[14px] font-semibold text-ink-900">
-            公開のお知らせを希望する
-          </p>
+          <div className="flex items-center gap-2">
+            <BrandMotif name="gate" className="h-5 w-5 text-ink-500" />
+            <p className="font-sans text-[14px] font-semibold text-ink-900">
+              公開のお知らせを希望する
+            </p>
+          </div>
           <p className="mt-1 font-sans text-[13px] leading-6 text-ink-500">
             LINE での友だち追加によるお知らせを準備中です。公開まで今しばらくお待ちください。
           </p>

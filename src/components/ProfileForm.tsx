@@ -8,7 +8,7 @@
 // returns 400 code:"under_age" which we also surface (design-system §4.3,
 // contract §2). gender is a hard requirement (3対3 判定の根幹).
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/Button";
@@ -26,6 +26,7 @@ import {
 } from "@/app/_lib/types";
 import { ApiCallError, saveProfile, uploadProfilePhoto } from "@/app/_lib/api";
 import { isAdult, parseBirthdate, toBirthdateString } from "@/app/_lib/date";
+import { getOnboardingGender } from "@/app/_lib/onboarding-gender";
 
 const BIO_MAX = 120; // wireframe shows 0/120 counter (contract allows up to 500)
 const NAME_MAX = 32;
@@ -61,6 +62,18 @@ export function ProfileForm({
   const [day, setDay] = useState(initialBd ? String(initialBd.getDate()) : "");
   const [areas, setAreas] = useState<Area[]>(initial?.areaPref ?? []);
   const [bio, setBio] = useState(initial?.bio ?? "");
+
+  // 登録(create)時のみ、オンボーディングで先行入力した性別を初期選択に反映(s9 §4.4/§6)。
+  // sessionStorage はクライアントのみ → マウント後に読む(SSRのハイドレーション不一致回避)。
+  // すでに選択済み/編集モードでは上書きしない。最終的に Profile.gender が正。
+  useEffect(() => {
+    if (mode !== "create") return;
+    if (initial?.gender) return;
+    const pre = getOnboardingGender();
+    if (pre) setGender((cur) => cur ?? pre);
+    // 初回マウント時のみ。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [submitting, setSubmitting] = useState(false);
   const [ageError, setAgeError] = useState<string | null>(null);

@@ -10,6 +10,7 @@
 // バックエンド未接続でも全UI状態がレビューできるようにする(各所 `// FALLBACK`)。
 
 import type { PublicSlotDTO, PublicSlotDetailDTO } from "@/lib/types";
+import { atJstTime } from "./relative-date";
 
 export class PublicApiError extends Error {
   status: number;
@@ -36,41 +37,45 @@ async function getPublic<T>(path: string): Promise<T> {
 
 // ---- FALLBACK ダミー(契約準拠)。バックエンド本接続時に削除可。 ----
 // 「誰でもOK」「20代限定」「優良バッジ限定」の3種を含め、条件バッジ表示を一通り確認できる。
-const FB_PUBLIC_SLOTS: PublicSlotDTO[] = [
-  {
-    id: "pub_ebisu_01",
-    datetimeStart: "2026-06-13T19:30:00+09:00",
-    area: "ebisu",
-    capacityPerGender: 3,
-    filled: { male: 1, female: 2 },
-    conditions: { minAge: null, maxAge: null, requiresBadge: null },
-    feeMale: 2000,
-    status: "open",
-  },
-  {
-    id: "pub_ikebukuro_20s",
-    datetimeStart: "2026-06-17T19:30:00+09:00",
-    area: "ikebukuro",
-    capacityPerGender: 3,
-    filled: { male: 2, female: 1 },
-    conditions: { minAge: 20, maxAge: 29, requiresBadge: null },
-    feeMale: 2000,
-    status: "open",
-  },
-  {
-    id: "pub_ginza_premium",
-    datetimeStart: "2026-06-20T19:30:00+09:00",
-    area: "ginza",
-    capacityPerGender: 3,
-    filled: { male: 2, female: 2 },
-    conditions: { minAge: null, maxAge: null, requiresBadge: "premium" },
-    feeMale: 2000,
-    status: "open",
-  },
-];
+// 日付は「今から数日後」の相対生成（陳腐化防止 / s9_spec §4）。19:30 集合の雰囲気は維持。
+function fbPublicSlots(): PublicSlotDTO[] {
+  return [
+    {
+      id: "pub_ebisu_01",
+      datetimeStart: atJstTime(4, 19, 30),
+      area: "ebisu",
+      capacityPerGender: 3,
+      filled: { male: 1, female: 2 },
+      conditions: { minAge: null, maxAge: null, requiresBadge: null },
+      feeMale: 2000,
+      status: "open",
+    },
+    {
+      id: "pub_ikebukuro_20s",
+      datetimeStart: atJstTime(8, 19, 30),
+      area: "ikebukuro",
+      capacityPerGender: 3,
+      filled: { male: 2, female: 1 },
+      conditions: { minAge: 20, maxAge: 29, requiresBadge: null },
+      feeMale: 2000,
+      status: "open",
+    },
+    {
+      id: "pub_ginza_premium",
+      datetimeStart: atJstTime(11, 19, 30),
+      area: "ginza",
+      capacityPerGender: 3,
+      filled: { male: 2, female: 2 },
+      conditions: { minAge: null, maxAge: null, requiresBadge: "premium" },
+      feeMale: 2000,
+      status: "open",
+    },
+  ];
+}
 
 function fallbackPublicDetail(id: string): PublicSlotDetailDTO {
-  const base = FB_PUBLIC_SLOTS.find((s) => s.id === id) ?? FB_PUBLIC_SLOTS[0];
+  const slots = fbPublicSlots();
+  const base = slots.find((s) => s.id === id) ?? slots[0];
   return {
     ...base,
     members: [
@@ -105,7 +110,7 @@ export async function fetchPublicSlots(): Promise<PublicSlotDTO[]> {
     const data = await getPublic<{ slots: PublicSlotDTO[] }>("/api/public/slots");
     return data.slots;
   } catch {
-    return FB_PUBLIC_SLOTS; // FALLBACK
+    return fbPublicSlots(); // FALLBACK
   }
 }
 

@@ -8,9 +8,9 @@ import type { Metadata } from "next";
 import { ComingSoon } from "@/components/ComingSoon";
 
 export const metadata: Metadata = {
-  title: "rendez — 近日公開予定",
+  title: "HAKO-NIWA（箱庭）— 近日公開予定",
   description:
-    "rendez は、男女3人ずつ・計6人で会う新しい合コンです。東京・恵比寿 / 池袋 / 銀座で近日公開予定。",
+    "HAKO-NIWA（箱庭）は、男女3人ずつ・計6人で会う、安心できる出会いの場です。東京・恵比寿 / 池袋 / 銀座で近日公開予定。",
 };
 
 export default function ComingSoonPage() {

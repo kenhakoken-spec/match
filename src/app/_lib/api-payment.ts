@@ -17,6 +17,7 @@
 // client_secret / status / amount. See design-system.md §4.7C.
 
 import { ApiCallError } from "./api";
+import { daysAgo } from "./relative-date";
 
 // reason codes (mirror src/lib/domain/payment.ts FeeReason — slots-ui does not export it).
 export type FeeReason = "female_free" | "male_first_free" | "male_paid";
@@ -108,7 +109,7 @@ export async function confirmPayment(paymentId: string): Promise<PaymentDTO> {
   } catch (e) {
     if (e instanceof ApiCallError) throw e;
     // FALLBACK (network only): echo a succeeded payment so the mock flow completes.
-    return { ...fallbackPaymentBase(paymentId), status: "succeeded", paidAt: NOW };
+    return { ...fallbackPaymentBase(paymentId), status: "succeeded", paidAt: nowIso() };
   }
 }
 
@@ -117,7 +118,7 @@ export async function fetchMyPayments(): Promise<PaymentDTO[]> {
     const data = await getJson<{ payments: PaymentDTO[] }>("/api/payments/mine");
     return data.payments ?? [];
   } catch {
-    return FALLBACK_MINE; // FALLBACK
+    return fallbackMine(); // FALLBACK
   }
 }
 
@@ -128,7 +129,10 @@ export async function fetchMyPayments(): Promise<PaymentDTO[]> {
 //   anything else      -> female_free
 // These never run when the API answers (2xx OR a 4xx ApiCallError).
 
-const NOW = "2026-05-30T12:00:00.000Z";
+// 「今」の ISO（陳腐化防止 / s9_spec §4）。intent/confirm の createdAt・paidAt に使う。
+function nowIso(): string {
+  return new Date().toISOString();
+}
 
 function fallbackPaymentBase(id: string): PaymentDTO {
   return {
@@ -139,7 +143,7 @@ function fallbackPaymentBase(id: string): PaymentDTO {
     status: "created",
     slotId: null,
     paidAt: null,
-    createdAt: NOW,
+    createdAt: nowIso(),
   };
 }
 
@@ -165,7 +169,7 @@ function fallbackIntent(slotId: string): PaymentIntentResponse {
         isFirstFree: true,
         status: "succeeded",
         slotId,
-        paidAt: NOW,
+        paidAt: nowIso(),
       },
     };
   }
@@ -176,30 +180,34 @@ function fallbackIntent(slotId: string): PaymentIntentResponse {
       ...fallbackPaymentBase("pay_mock_free"),
       status: "succeeded",
       slotId,
-      paidAt: NOW,
+      paidAt: nowIso(),
     },
   };
 }
 
-const FALLBACK_MINE: PaymentDTO[] = [
-  {
-    id: "pay_mock_h1",
-    amountJpy: 2000,
-    currency: "JPY",
-    isFirstFree: false,
-    status: "succeeded",
-    slotId: "paid",
-    paidAt: "2026-05-20T11:30:00.000Z",
-    createdAt: "2026-05-20T11:29:00.000Z",
-  },
-  {
-    id: "pay_mock_h2",
-    amountJpy: 0,
-    currency: "JPY",
-    isFirstFree: true,
-    status: "succeeded",
-    slotId: "firstfree",
-    paidAt: "2026-05-01T10:00:00.000Z",
-    createdAt: "2026-05-01T09:59:00.000Z",
-  },
-];
+// 決済履歴（U-14）。「今から数日前」の相対生成（陳腐化防止 / s9_spec §4）。
+// createdAt は paidAt の少し前（実フロー同様）— 同じ日付オフセットで近接させる。
+function fallbackMine(): PaymentDTO[] {
+  return [
+    {
+      id: "pay_mock_h1",
+      amountJpy: 2000,
+      currency: "JPY",
+      isFirstFree: false,
+      status: "succeeded",
+      slotId: "paid",
+      paidAt: daysAgo(12),
+      createdAt: daysAgo(12),
+    },
+    {
+      id: "pay_mock_h2",
+      amountJpy: 0,
+      currency: "JPY",
+      isFirstFree: true,
+      status: "succeeded",
+      slotId: "firstfree",
+      paidAt: daysAgo(31),
+      createdAt: daysAgo(31),
+    },
+  ];
+}

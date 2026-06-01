@@ -1,16 +1,20 @@
 "use client";
 
-// U-00 スプラッシュ / LINEログイン (STEP0) — wireframes.md U-00.
-// Minimal. Quiet editorial logo, one functional copy line, the LINE button,
-// and small 利用規約/プライバシー links. No purple gradient, no promo tone.
+// U-00 入口 / LINEログイン — HAKO-NIWA(箱庭) のLP兼ログイン (wireframes U-00 / s9 §3.2)。
+// 縦構成: ロックアップ → ヒーロー(タグライン+主見出し明朝+箱庭SVG添景) → 価値5点 →
+// ご利用の流れ → 固定フッタの2導線(LINEではじめる / 会を見てみる) → 規約。
+// 画像が一枚も無くても、タイポ+余白+最小SVGで品よく成立する(s9 §3.4: 枠だけ残る事故ゼロ)。
 //
-// NOTE: このクライアント本体は元 page.tsx から切り出したもの。page.tsx を
-// Server Component の入口ゲート（ReleaseGate）にするため分離した。挙動は不変。
+// NOTE: ログインロジック(runLogin/handleLogin/自動再開useEffect/error)は挙動不変で維持。
+// S9 で変えたのはビジュアルとコピー、および副CTA(会を見てみる→/explore)の追加のみ。
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { lineLogin } from "./_lib/liff-login";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
+import { BrandLockup } from "@/components/brand/BrandLockup";
+import { BrandMotif } from "@/components/brand/BrandMotif";
+import { FlowList, ValueList } from "@/components/brand/LpSections";
 
 // エラーコード→ユーザー向け日本語（原因が分かるように。煽らない静かな文言）。
 function errorMessage(code: string | undefined): string {
@@ -55,13 +59,6 @@ export function LoginScreen() {
     if (startedRef.current) return;
     if (typeof window === "undefined") return;
     const qs = window.location.search;
-    // LIFF経由(liff.line.me/{id}?diag=1)で来たら診断ページへ。LINEアプリ内で
-    // 開けているか(isInClient)の真値を見るための一時導線。
-    if (qs.includes("diag=1")) {
-      startedRef.current = true;
-      window.location.replace("/line-debug");
-      return;
-    }
     const returnedFromLine =
       qs.includes("code=") || qs.includes("liff.state");
     if (returnedFromLine) {
@@ -77,32 +74,38 @@ export function LoginScreen() {
   }
 
   return (
-    <main className="flex min-h-[100dvh] flex-col justify-between px-6 pb-10 pt-16">
+    <main className="flex min-h-[100dvh] flex-col px-6 pb-44 pt-16">
       <div className="pt-8">
-        {/* Editorial mark — a small drawn diamond, not a glossy SaaS logo. */}
-        <div
-          aria-hidden
-          className="mb-6 flex h-11 w-11 items-center justify-center rounded-md border border-line-200 text-accent-500"
-        >
-          <span className="text-lg leading-none">◇</span>
-        </div>
-        <p className="font-serif text-[22px] font-semibold tracking-tight text-ink-900">
-          rendez
-        </p>
-        <p className="mt-1 font-sans text-[13px] tracking-wide text-ink-500">
-          東京・恵比寿 / 池袋 / 銀座
-        </p>
+        <BrandLockup />
 
-        <h2 className="mt-10 font-serif text-[28px] leading-[1.35] text-ink-900">
+        {/* ヒーロー: タグライン → 主見出し(明朝) → 箱庭の添景SVG → 説明 */}
+        <p className="mt-10 font-sans text-[18px] font-bold leading-snug text-accent-600">
+          みんなが出会える場所
+        </p>
+        <h1 className="mt-3 font-serif text-[28px] leading-[1.35] text-ink-900">
           3対3で、会いにいく。
-        </h2>
-        <p className="mt-4 max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
-          男女3人ずつ、計6人で集まる新しい合コン。アプリ内のやり取りはありません。
+        </h1>
+
+        {/* 写真の代替＝箱庭の添景。写真が無くても常に描画され、枠だけ残る事故が起きない。 */}
+        <div className="mt-7 flex justify-center">
+          <BrandMotif
+            name="garden-plot"
+            accent="#C2703D"
+            className="h-auto w-full max-w-[20rem] text-line-200"
+          />
+        </div>
+
+        <p className="mt-7 max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
+          男女3人ずつ、計6人で会う、安心できる出会いの場です。
           会場はこちらで手配します。
         </p>
+
+        <ValueList />
+        <FlowList />
       </div>
 
-      <div className="space-y-4">
+      {/* 固定フッタ: 主導線(LINEではじめる) + 副導線(会を見てみる) + 規約。 */}
+      <div className="fixed inset-x-0 bottom-0 mx-auto max-w-app space-y-3 border-t border-line-200 bg-bg-surface px-6 pb-5 pt-3 shadow-md">
         {error ? (
           <p
             role="alert"
@@ -114,12 +117,9 @@ export function LoginScreen() {
         <Button data-testid="login-button" onClick={handleLogin} disabled={loading}>
           {loading ? "接続しています…" : "LINEではじめる"}
         </Button>
-        {/* 一時診断リンク（原因確定後に削除）。 */}
-        <p className="text-center">
-          <a href="/line-debug" className="font-sans text-[11px] text-ink-300 underline">
-            （診断）
-          </a>
-        </p>
+        <ButtonLink href="/explore" variant="secondary" data-testid="explore-cta">
+          会を見てみる
+        </ButtonLink>
         <p className="text-center font-sans text-xs leading-relaxed text-ink-500">
           続行すると{" "}
           <a href="/legal/terms" className="text-accent-500 underline">
@@ -130,6 +130,11 @@ export function LoginScreen() {
             プライバシー
           </a>{" "}
           に同意したものとみなします
+        </p>
+        <p className="text-center font-sans text-xs leading-relaxed text-ink-500">
+          <a href="/legal/tokushoho" className="text-accent-500 underline">
+            特定商取引法に基づく表記
+          </a>
         </p>
       </div>
     </main>

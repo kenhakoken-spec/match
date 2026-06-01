@@ -81,10 +81,16 @@ export default function IdentityStatusPage() {
                 <>
                   通常 1〜2 営業日で完了します。
                   <br />
-                  完了したら LINE でお知らせします。
+                  結果は LINE とこの画面でお知らせします。
                 </>
               }
-              note="審査中は枠への応募はできません"
+              note={
+                <>
+                  審査中は会への応募はできません。
+                  <br />
+                  審査中でも、開催予定の会はご覧いただけます。
+                </>
+              }
             />
           ) : null}
 
@@ -156,9 +162,13 @@ export default function IdentityStatusPage() {
             </Button>
           ) : null}
           {status === "pending" ? (
-            <Button variant="secondary" onClick={() => router.push("/browse")}>
-              ホームへ
-            </Button>
+            <>
+              {/* 「まず見せる」方針(s9 §6.2b): 会を見てみる(/explore)を主に格上げ。 */}
+              <Button onClick={() => router.push("/explore")}>会を見てみる</Button>
+              <Button variant="secondary" onClick={() => router.push("/browse")}>
+                ホームへ
+              </Button>
+            </>
           ) : null}
         </div>
       </PageBody>
@@ -177,7 +187,7 @@ function StateBlock({
   pill: React.ReactNode;
   title: string;
   body: React.ReactNode;
-  note?: string;
+  note?: React.ReactNode;
 }) {
   return (
     <div className="flex w-full flex-col items-center gap-3">

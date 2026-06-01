@@ -17,6 +17,7 @@
 // U-15 list + detail render for review even with no live backend.
 
 import { ApiCallError } from "./api";
+import { atJstTime } from "./relative-date";
 import type { Area } from "./types";
 
 // ---- DTOs (mirror src/lib/rating-types.ts exactly) ----
@@ -111,23 +112,22 @@ const FB_MEMBERS: PendingMemberDTO[] = [
 ];
 
 // 評価可能イベント（過去開催・done）。新しい順。
-const FB_PENDING: PendingRatingDTO[] = [
-  {
-    slotId: "slot_ebisu_done",
-    datetime: "2026-05-29T19:30:00+09:00",
-    area: "ebisu",
-    members: FB_MEMBERS,
-  },
-  {
-    slotId: "slot_ginza_done",
-    datetime: "2026-05-22T18:00:00+09:00",
-    area: "ginza",
-    members: FB_MEMBERS.slice(0, 4),
-  },
-];
-
+// 日付は「今から数日前」の相対生成（陳腐化防止 / s9_spec §4）。集合時刻の雰囲気は維持。
 function fallbackPending(): PendingRatingDTO[] {
-  return FB_PENDING.map((p) => ({ ...p, members: [...p.members] }));
+  return [
+    {
+      slotId: "slot_ebisu_done",
+      datetime: atJstTime(-4, 19, 30),
+      area: "ebisu",
+      members: [...FB_MEMBERS],
+    },
+    {
+      slotId: "slot_ginza_done",
+      datetime: atJstTime(-11, 18, 0),
+      area: "ginza",
+      members: FB_MEMBERS.slice(0, 4),
+    },
+  ];
 }
 
 // ---- public API ----

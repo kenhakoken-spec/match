@@ -1,6 +1,6 @@
 // src/components/public/PublicSlotCard.tsx — 公開(未ログイン)枠カード (S8 要望1).
 // 認証版 SlotCard(eligibility ヒント前提) は流用せず、公開DTO専用の薄いカードを置く。
-// 表示は枠の事実情報のみ: エリア・日時 / 充足ドット+残数 / 参加条件チップ / 男性料金。
+// 表示は枠の事実情報のみ: エリア・日時 / 充足ドット+残数 / 参加条件チップ / 料金中立併記。
 // 個人特定情報は構造上 PublicSlotDTO に無い(氏名/写真/lineUserId は出さない)。
 // design-system §4.2(カード) / §4.7A(条件チップ) / §8(煽らない) 準拠。
 import Link from "next/link";
@@ -44,8 +44,10 @@ export function PublicSlotCard({ slot }: { slot: PublicSlotDTO }) {
 
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-line-100 pt-3">
         <SlotConditionChips conditions={slot.conditions} />
+        {/* 公開は性別不明 → 中立併記(女性無料を追記 / s9 §5.1・§5.3)。 */}
         <span className="shrink-0 font-sans text-[12px] text-ink-500">
           男性 <span className="font-semibold tabular-nums text-ink-700">{yen(slot.feeMale)}</span>
+          <span className="text-ink-500"> ・ 女性 無料</span>
         </span>
       </div>
     </Link>

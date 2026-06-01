@@ -10,5 +10,6 @@
 - [S8 3-axis Rating UI](task_s8_rating.md) — S8 3軸評価+来なかった報告 (done): POST 3-axis body, multiAxis/noShow contract, MultiAxisSummary, new testids (axis-again/talk/manner, noshow-report)
 - [S8 Release Gate + Coming Soon](task_s8_releasegate.md) — S8 要望3 待機画面+全体ゲート (done): gate on per-entry page NOT layout, fail-open default, server/client split, testid coming-soon
 - [S8 Venue Admin + Multi-axis](task_s8_venue_admin.md) — S8 admin 会場候補 (done): venue API shapes (items/{candidate,match}), no scaffold existed, admin roster has NO occupation/3軸 (要望1 already via PublicMemberCard), 313 baseline
+- [S9 HAKO-NIWA Rebrand + LP](task_s9_ui.md) — S9 (done): rendez→箱庭 rebrand, BrandMotif inline-SVG, LP, onboarding gender-first+sessionStorage, fee-by-gender (女性に¥2,000非表示), BrowseStatusBanner, new testids
 - [Env: pkill & dev-server gotchas](feedback_env_wsl.md) — pkill/fuser exit 144 cascades; dev server lifetime; blank Bash output
 - [E2E data-testid map](task_e2e_testids.md) — 16 testids for S1/S2 UI: value→element map, no-spread-prop forwarding, git-untracked verify-by-grep

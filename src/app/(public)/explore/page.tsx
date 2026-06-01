@@ -76,10 +76,7 @@ export default function ExplorePage() {
 
       {/* 予約はできない＝登録導線を常設(固定フッタ)。 */}
       <div className="sticky bottom-0 space-y-2 border-t border-line-200 bg-bg-surface px-5 py-3 shadow-md">
-        <RegisterCta
-          label="登録して参加"
-          note="気になる会があれば、登録すると予約できます。"
-        />
+        <RegisterCta note="気になる会があれば、登録すると応募できます。" />
       </div>
     </div>
   );

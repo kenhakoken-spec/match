@@ -16,6 +16,7 @@
 // renders for review even with no backend (same pattern as api-s3.ts).
 
 import { ApiCallError } from "./api";
+import { daysAgo } from "./relative-date";
 
 // ---- S6 DTOs (mirror src/lib/badge-types.ts exactly) ----
 export type BadgeTypeDTO = "premium";
@@ -101,29 +102,32 @@ const FB_MY_BADGES: MyBadgesDTO = {
   },
 };
 
-const FB_ADMIN_BADGES: AdminBadgeRowDTO[] = [
-  {
-    userId: "u_premium_auto",
-    displayName: "ミナ",
-    type: "premium",
-    grantedAt: "2026-05-28T11:00:00.000Z",
-    grantedBy: "system",
-  },
-  {
-    userId: "u_premium_manual",
-    displayName: "ハル",
-    type: "premium",
-    grantedAt: "2026-05-26T08:30:00.000Z",
-    grantedBy: "u_admin",
-  },
-  {
-    userId: "u_premium_noname",
-    displayName: null,
-    type: "premium",
-    grantedAt: "2026-05-24T15:10:00.000Z",
-    grantedBy: "system",
-  },
-];
+// 付与済バッジ一覧（A-10）。grantedAt は「今から数日前」の相対生成（陳腐化防止 / s9_spec §4）。
+function fbAdminBadges(): AdminBadgeRowDTO[] {
+  return [
+    {
+      userId: "u_premium_auto",
+      displayName: "ミナ",
+      type: "premium",
+      grantedAt: daysAgo(5),
+      grantedBy: "system",
+    },
+    {
+      userId: "u_premium_manual",
+      displayName: "ハル",
+      type: "premium",
+      grantedAt: daysAgo(7),
+      grantedBy: "u_admin",
+    },
+    {
+      userId: "u_premium_noname",
+      displayName: null,
+      type: "premium",
+      grantedAt: daysAgo(9),
+      grantedBy: "system",
+    },
+  ];
+}
 
 // ---- public API (user-facing, U-10 mypage) ----
 export async function fetchMyBadges(): Promise<MyBadgesDTO> {
@@ -140,7 +144,7 @@ export async function fetchAdminBadges(): Promise<AdminBadgeRowDTO[]> {
     const data = await getJson<{ items: AdminBadgeRowDTO[] }>("/api/admin/badges");
     return data.items;
   } catch {
-    return FB_ADMIN_BADGES; // FALLBACK
+    return fbAdminBadges(); // FALLBACK
   }
 }
 

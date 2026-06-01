@@ -49,3 +49,6 @@ test-results/
 *.sqlite
 *.sqlite3
 *.db
+
+# Vercel
+.vercel

@@ -1,19 +1,19 @@
 "use client";
 
-// U-04 枠一覧 (ホーム / 下部タブ) — wireframes.md U-04, design-system §4.2/§4.7.
+// U-04 枠一覧 (ホーム / 下部タブ) — wireframes.md U-04, design-system §4.2/§4.7 / s9 §5・§6.2c。
 // 開催枠を日時昇順でカード表示。各カード: エリア・日時 / 充足ドット(●確定 ○空き)+残数 /
-// 参加条件チップ(20代限定 / 優良バッジ限定) / 男性料金。条件不足の枠は淡色+破線+事実理由
-// (赤=danger にはしない / §8)。未認証ユーザーには上部に常設の本人確認バナー。
+// 参加条件チップ(20代限定 / 優良バッジ限定) / 料金(女性視点では非表示 / s9 §5)。条件不足の枠は
+// 淡色+破線+事実理由(赤=danger にはしない / §8)。上部は段階別ステータスバナー(BrowseStatusBanner)。
 //
 // 一覧APIは eligibility を含めない(契約§2)ので、条件不足は getMe() のプロフィールから
 // クライアント側ヒントとして淡色表示するに留める(確実な可否は U-05 詳細)。
+// 料金出し分けは getMe() の Profile.gender を SlotCard に渡して行う(女性に¥2,000を見せない)。
 
 import { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/States";
-import { ButtonLink } from "@/components/ui/Button";
-import { StatusPill } from "@/components/ui/StatusPill";
 import { SlotCard } from "@/components/slots/SlotCard";
+import { BrowseStatusBanner } from "@/components/slots/BrowseStatusBanner";
 import { fetchSlots, type SlotDTO } from "@/app/_lib/api-s2";
 import { getMe } from "@/app/_lib/api";
 import { listHint } from "@/app/_lib/slots-ui";
@@ -57,8 +57,6 @@ export default function BrowsePage() {
     [slots],
   );
 
-  const verified = me?.identity?.status === "approved";
-
   return (
     <>
       <AppHeader title="枠をさがす" />
@@ -70,24 +68,8 @@ export default function BrowsePage() {
         </main>
       ) : (
         <main className="flex-1 px-5 pb-10 pt-4">
-          {/* 未認証ユーザー向け常設バナー (U-04)。責めない・案内のトーン。 */}
-          {me && !verified ? (
-            <div className="mb-5 flex items-center justify-between gap-3 rounded-md border border-accent-300 bg-accent-100 px-4 py-3">
-              <div className="flex min-w-0 items-center gap-2">
-                <StatusPill tone="info" glyph="◷">
-                  確認中
-                </StatusPill>
-                <p className="min-w-0 font-sans text-[13px] leading-snug text-ink-700">
-                  本人確認が完了すると応募できます
-                </p>
-              </div>
-              <div className="shrink-0">
-                <ButtonLink href="/identity/status" variant="secondary">
-                  確認する
-                </ButtonLink>
-              </div>
-            </div>
-          ) : null}
+          {/* 段階別ステータスバナー (U-04 / s9 §6.2c)。責めない・案内のトーン・形状併記。 */}
+          <BrowseStatusBanner me={me} />
 
           {sorted.length === 0 ? (
             <EmptyState
@@ -100,7 +82,11 @@ export default function BrowsePage() {
             <ul className="space-y-3" data-testid="slot-list">
               {sorted.map((slot) => (
                 <li key={slot.id}>
-                  <SlotCard slot={slot} hint={viewer ? listHint(slot, viewer) : undefined} />
+                  <SlotCard
+                    slot={slot}
+                    hint={viewer ? listHint(slot, viewer) : undefined}
+                    viewerGender={me?.profile?.gender ?? null}
+                  />
                 </li>
               ))}
             </ul>

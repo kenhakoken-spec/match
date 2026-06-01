@@ -145,7 +145,7 @@ export default function ExploreDetailPage({ params }: { params: { id: string } }
 
       {/* 予約はできない＝登録導線(固定フッタ)。 */}
       <div className="sticky bottom-0 space-y-2 border-t border-line-200 bg-bg-surface px-5 py-3 shadow-md">
-        <RegisterCta label="登録して参加" note="この会に参加するには登録が必要です。" />
+        <RegisterCta note="この会に参加するには登録が必要です。" />
       </div>
     </div>
   );

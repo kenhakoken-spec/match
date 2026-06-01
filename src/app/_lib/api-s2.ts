@@ -11,6 +11,7 @@
 // these are kept byte-identical to src/lib/types.ts so the swap is mechanical).
 
 import { ApiCallError } from "./api";
+import { atJstTime } from "./relative-date";
 import type { Area } from "./types";
 export type { Gender } from "./types";
 
@@ -104,51 +105,55 @@ function buildQuery(params?: { area?: Area; from?: string; to?: string }): strin
 // ---- FALLBACK dummy data (contract-shaped). Delete when relying on live backend. ----
 // Covers: 通常枠 / 20代限定枠[条件不足] / 優良バッジ限定枠 / 満員 / 応募済 — so every
 // S2 UI state is exercised in screenshots even without the backend reachable.
-const FB_SLOTS: SlotDTO[] = [
-  {
-    id: "slot_ebisu_01",
-    datetimeStart: "2026-06-13T19:30:00+09:00",
-    area: "ebisu",
-    capacityPerGender: 3,
-    filled: { male: 1, female: 2 },
-    conditions: { minAge: null, maxAge: null, requiresBadge: null },
-    status: "open",
-    feeMale: 2000,
-  },
-  {
-    id: "slot_ikebukuro_20s",
-    datetimeStart: "2026-06-20T20:00:00+09:00",
-    area: "ikebukuro",
-    capacityPerGender: 3,
-    filled: { male: 2, female: 2 },
-    conditions: { minAge: 20, maxAge: 29, requiresBadge: null },
-    status: "open",
-    feeMale: 2000,
-  },
-  {
-    id: "slot_ginza_premium",
-    datetimeStart: "2026-06-14T18:00:00+09:00",
-    area: "ginza",
-    capacityPerGender: 3,
-    filled: { male: 2, female: 3 },
-    conditions: { minAge: null, maxAge: null, requiresBadge: "premium" },
-    status: "open",
-    feeMale: 2000,
-  },
-  {
-    id: "slot_ebisu_applied",
-    datetimeStart: "2026-06-27T19:00:00+09:00",
-    area: "ebisu",
-    capacityPerGender: 3,
-    filled: { male: 1, female: 1 },
-    conditions: { minAge: null, maxAge: null, requiresBadge: null },
-    status: "open",
-    feeMale: 2000,
-  },
-];
+// 日付は「今から数日後」の相対生成（陳腐化防止 / s9_spec §4）。集合時刻の雰囲気は維持。
+function fbSlots(): SlotDTO[] {
+  return [
+    {
+      id: "slot_ebisu_01",
+      datetimeStart: atJstTime(4, 19, 30),
+      area: "ebisu",
+      capacityPerGender: 3,
+      filled: { male: 1, female: 2 },
+      conditions: { minAge: null, maxAge: null, requiresBadge: null },
+      status: "open",
+      feeMale: 2000,
+    },
+    {
+      id: "slot_ikebukuro_20s",
+      datetimeStart: atJstTime(11, 20, 0),
+      area: "ikebukuro",
+      capacityPerGender: 3,
+      filled: { male: 2, female: 2 },
+      conditions: { minAge: 20, maxAge: 29, requiresBadge: null },
+      status: "open",
+      feeMale: 2000,
+    },
+    {
+      id: "slot_ginza_premium",
+      datetimeStart: atJstTime(5, 18, 0),
+      area: "ginza",
+      capacityPerGender: 3,
+      filled: { male: 2, female: 3 },
+      conditions: { minAge: null, maxAge: null, requiresBadge: "premium" },
+      status: "open",
+      feeMale: 2000,
+    },
+    {
+      id: "slot_ebisu_applied",
+      datetimeStart: atJstTime(18, 19, 0),
+      area: "ebisu",
+      capacityPerGender: 3,
+      filled: { male: 1, female: 1 },
+      conditions: { minAge: null, maxAge: null, requiresBadge: null },
+      status: "open",
+      feeMale: 2000,
+    },
+  ];
+}
 
 function fallbackDetail(id: string): SlotDetailDTO {
-  const base = FB_SLOTS.find((s) => s.id === id) ?? FB_SLOTS[0];
+  const slots = fbSlots();
+  const base = slots.find((s) => s.id === id) ?? slots[0];
   if (id === "slot_ikebukuro_20s") {
     // 20代限定で年齢条件外 → 応募不可 (条件不足を danger にしない側の代表ケース)
     return {
@@ -175,55 +180,59 @@ function fallbackDetail(id: string): SlotDetailDTO {
   return { ...base, myApplication: null, eligibility: { canApply: true, reasons: [] } };
 }
 
-const FB_APPLICATIONS: ApplicationListItem[] = [
-  // 成立(支払い待ち相当 = accepted) — U-07 で最も目立たせる行
-  {
-    slot: {
-      id: "slot_ebisu_done",
-      datetimeStart: "2026-06-13T19:30:00+09:00",
-      area: "ebisu",
-      capacityPerGender: 3,
-      filled: { male: 3, female: 3 },
-      conditions: { minAge: null, maxAge: null, requiresBadge: null },
-      status: "filled",
-      feeMale: 2000,
+// 応募一覧（U-07）。日付は相対生成（陳腐化防止 / s9_spec §4）。slot_*_done/conf は
+// fbSlots() の対応枠と同じ日付感に揃える（成立=ebisu +4 / 確定=ginza +5）。
+function fbApplications(): ApplicationListItem[] {
+  return [
+    // 成立(支払い待ち相当 = accepted) — U-07 で最も目立たせる行
+    {
+      slot: {
+        id: "slot_ebisu_done",
+        datetimeStart: atJstTime(4, 19, 30),
+        area: "ebisu",
+        capacityPerGender: 3,
+        filled: { male: 3, female: 3 },
+        conditions: { minAge: null, maxAge: null, requiresBadge: null },
+        status: "filled",
+        feeMale: 2000,
+      },
+      status: "accepted",
     },
-    status: "accepted",
-  },
-  // 募集中
-  {
-    slot: FB_SLOTS[3],
-    status: "applied",
-  },
-  // 確定済イベント
-  {
-    slot: {
-      id: "slot_ginza_conf",
-      datetimeStart: "2026-06-14T18:00:00+09:00",
-      area: "ginza",
-      capacityPerGender: 3,
-      filled: { male: 3, female: 3 },
-      conditions: { minAge: null, maxAge: null, requiresBadge: "premium" },
-      status: "confirmed",
-      feeMale: 2000,
+    // 募集中
+    {
+      slot: fbSlots()[3],
+      status: "applied",
     },
-    status: "accepted",
-  },
-  // 取消済
-  {
-    slot: {
-      id: "slot_ebisu_cancelled",
-      datetimeStart: "2026-06-06T19:00:00+09:00",
-      area: "ebisu",
-      capacityPerGender: 3,
-      filled: { male: 1, female: 0 },
-      conditions: { minAge: null, maxAge: null, requiresBadge: null },
+    // 確定済イベント
+    {
+      slot: {
+        id: "slot_ginza_conf",
+        datetimeStart: atJstTime(5, 18, 0),
+        area: "ginza",
+        capacityPerGender: 3,
+        filled: { male: 3, female: 3 },
+        conditions: { minAge: null, maxAge: null, requiresBadge: "premium" },
+        status: "confirmed",
+        feeMale: 2000,
+      },
+      status: "accepted",
+    },
+    // 取消済
+    {
+      slot: {
+        id: "slot_ebisu_cancelled",
+        datetimeStart: atJstTime(2, 19, 0),
+        area: "ebisu",
+        capacityPerGender: 3,
+        filled: { male: 1, female: 0 },
+        conditions: { minAge: null, maxAge: null, requiresBadge: null },
+        status: "canceled",
+        feeMale: 2000,
+      },
       status: "canceled",
-      feeMale: 2000,
     },
-    status: "canceled",
-  },
-];
+  ];
+}
 
 // ---- public API ----
 export async function fetchSlots(params?: {
@@ -235,7 +244,7 @@ export async function fetchSlots(params?: {
     const data = await getJson<{ slots: SlotDTO[] }>(`/api/slots${buildQuery(params)}`);
     return data.slots;
   } catch {
-    return FB_SLOTS; // FALLBACK
+    return fbSlots(); // FALLBACK
   }
 }
 
@@ -293,7 +302,7 @@ export async function fetchApplications(): Promise<ApplicationListItem[]> {
     const data = await getJson<{ items: ApplicationListItem[] }>("/api/applications");
     return data.items;
   } catch {
-    return FB_APPLICATIONS; // FALLBACK
+    return fbApplications(); // FALLBACK
   }
 }
 
@@ -308,7 +317,7 @@ export async function fetchAdminSlots(): Promise<SlotDTO[]> {
     const data = await getJson<{ slots: SlotDTO[] }>("/api/admin/slots");
     return data.slots;
   } catch {
-    return FB_SLOTS; // FALLBACK
+    return fbSlots(); // FALLBACK
   }
 }
 

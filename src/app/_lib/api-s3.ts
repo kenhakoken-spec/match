@@ -17,6 +17,7 @@
 // (`// FALLBACK`) so every UI state renders for review even with no backend.
 
 import { ApiCallError } from "./api";
+import { atJstTime, daysAgo } from "./relative-date";
 import type { Area, Gender } from "./types";
 
 // ---- S3 DTOs (mirror src/lib/types.ts §S3 exactly) ----
@@ -126,49 +127,54 @@ const FB_VENUE: VenueDTO = {
 // User-facing fallback. venue hidden until notified per contract.
 // id "pending_venue"/"venue_set" -> that pre-notified state; else -> notified.
 function fallbackMatchDetail(id: string): MatchDetailDTO {
-  const slot = { datetimeStart: "2026-06-13T19:30:00+09:00", area: "ebisu" as Area };
+  // 相対生成（陳腐化防止 / s9_spec §4）。ebisu_done 枠と同じ +4日 19:30 に揃える。
+  const slot = { datetimeStart: atJstTime(4, 19, 30), area: "ebisu" as Area };
   if (id === "pending_venue" || id === "venue_set") {
     return { id, slot, status: id, venue: null, members: FB_MEMBERS };
   }
   return { id, slot, status: "notified", venue: FB_VENUE, members: FB_MEMBERS };
 }
 
-const FB_ADMIN_MATCHES: AdminMatchSummaryDTO[] = [
-  {
-    id: "m_pending",
-    slotId: "slot_ebisu_done",
-    slot: { datetimeStart: "2026-06-13T19:30:00+09:00", area: "ebisu" },
-    status: "pending_venue",
-    matchedAt: "2026-05-28T11:00:00.000Z",
-    filled: { male: 3, female: 3 },
-    venue: null,
-  },
-  {
-    id: "m_venue_set",
-    slotId: "slot_ginza_conf",
-    slot: { datetimeStart: "2026-06-14T18:00:00+09:00", area: "ginza" },
-    status: "venue_set",
-    matchedAt: "2026-05-27T09:00:00.000Z",
-    filled: { male: 3, female: 3 },
-    venue: FB_VENUE,
-  },
-  {
-    id: "m_notified",
-    slotId: "slot_ikebukuro_conf",
-    slot: { datetimeStart: "2026-06-20T20:00:00+09:00", area: "ikebukuro" },
-    status: "notified",
-    matchedAt: "2026-05-26T08:00:00.000Z",
-    filled: { male: 3, female: 3 },
-    venue: FB_VENUE,
-  },
-];
+// 管理マッチ一覧（A-04）。日付は相対生成（陳腐化防止 / s9_spec §4）。
+// 開催枠は今から数日後、matchedAt(成立日時)は今から数日前。3状態を一通り確認できる。
+function fbAdminMatches(): AdminMatchSummaryDTO[] {
+  return [
+    {
+      id: "m_pending",
+      slotId: "slot_ebisu_done",
+      slot: { datetimeStart: atJstTime(4, 19, 30), area: "ebisu" },
+      status: "pending_venue",
+      matchedAt: daysAgo(2),
+      filled: { male: 3, female: 3 },
+      venue: null,
+    },
+    {
+      id: "m_venue_set",
+      slotId: "slot_ginza_conf",
+      slot: { datetimeStart: atJstTime(5, 18, 0), area: "ginza" },
+      status: "venue_set",
+      matchedAt: daysAgo(3),
+      filled: { male: 3, female: 3 },
+      venue: FB_VENUE,
+    },
+    {
+      id: "m_notified",
+      slotId: "slot_ikebukuro_conf",
+      slot: { datetimeStart: atJstTime(11, 20, 0), area: "ikebukuro" },
+      status: "notified",
+      matchedAt: daysAgo(4),
+      filled: { male: 3, female: 3 },
+      venue: FB_VENUE,
+    },
+  ];
+}
 
 // Admin detail fallback. Admin always sees the full roster (displayName/gender).
 function fallbackAdminMatchDetail(id: string): AdminMatchDetailDTO {
-  const meta = FB_ADMIN_MATCHES.find((m) => m.id === id);
+  const meta = fbAdminMatches().find((m) => m.id === id);
   const slot = meta
     ? { ...meta.slot, capacityPerGender: 3 }
-    : { datetimeStart: "2026-06-13T19:30:00+09:00", area: "ebisu" as Area, capacityPerGender: 3 };
+    : { datetimeStart: atJstTime(4, 19, 30), area: "ebisu" as Area, capacityPerGender: 3 };
   const status = meta?.status ?? "pending_venue";
   const venue = status === "notified" || status === "venue_set" ? FB_VENUE : null;
   return {
@@ -176,7 +182,7 @@ function fallbackAdminMatchDetail(id: string): AdminMatchDetailDTO {
     slotId: meta?.slotId ?? "slot_ebisu_done",
     slot,
     status,
-    matchedAt: meta?.matchedAt ?? "2026-05-28T11:00:00.000Z",
+    matchedAt: meta?.matchedAt ?? daysAgo(2),
     filled: { male: 3, female: 3 },
     venue,
     members: FB_MEMBERS,
@@ -199,18 +205,19 @@ export async function fetchMyMatches(): Promise<MatchSummaryDTO[]> {
     return data.items;
   } catch {
     // FALLBACK — one confirmed + one arranging, so U-07 reflects both states.
+    // 日付は相対生成（陳腐化防止 / s9_spec §4）。ginza_conf=+5日 / ebisu_done=+4日。
     return [
       {
         id: "m_notified",
         slotId: "slot_ginza_conf",
-        slot: { datetimeStart: "2026-06-14T18:00:00+09:00", area: "ginza" },
+        slot: { datetimeStart: atJstTime(5, 18, 0), area: "ginza" },
         status: "notified",
         venueConfirmed: true,
       },
       {
         id: "m_pending",
         slotId: "slot_ebisu_done",
-        slot: { datetimeStart: "2026-06-13T19:30:00+09:00", area: "ebisu" },
+        slot: { datetimeStart: atJstTime(4, 19, 30), area: "ebisu" },
         status: "pending_venue",
         venueConfirmed: false,
       },
@@ -224,7 +231,7 @@ export async function fetchAdminMatches(): Promise<AdminMatchSummaryDTO[]> {
     const data = await getJson<{ items: AdminMatchSummaryDTO[] }>("/api/admin/matches");
     return data.items;
   } catch {
-    return FB_ADMIN_MATCHES; // FALLBACK
+    return fbAdminMatches(); // FALLBACK
   }
 }
 
