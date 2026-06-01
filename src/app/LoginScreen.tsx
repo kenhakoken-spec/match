@@ -55,6 +55,13 @@ export function LoginScreen() {
     if (startedRef.current) return;
     if (typeof window === "undefined") return;
     const qs = window.location.search;
+    // LIFF経由(liff.line.me/{id}?diag=1)で来たら診断ページへ。LINEアプリ内で
+    // 開けているか(isInClient)の真値を見るための一時導線。
+    if (qs.includes("diag=1")) {
+      startedRef.current = true;
+      window.location.replace("/line-debug");
+      return;
+    }
     const returnedFromLine =
       qs.includes("code=") || qs.includes("liff.state");
     if (returnedFromLine) {
