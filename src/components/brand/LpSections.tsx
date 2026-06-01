@@ -1,6 +1,8 @@
-// src/components/brand/LpSections.tsx — LP の編集的セクション(価値5点 / ご利用の流れ)。
-// s9 §3.1/§3.2: 量産LP(巨大ヒーロー+3カラム+キラキラ)を避け、価値は「縦に積む編集的
-// リスト」。各項目=小さな線アイコン + 1行見出し + 1行本文。流れは番号付き5ステップ。
+// src/components/brand/LpSections.tsx — LP の編集的セクション。
+// S10 (s10-redesign §4.4): 価値訴求を「素のリスト5点」から「カード4点(不安解消4軸)」に
+// 作り替える。各カード=左に線アイコン(28px/accent) + 右に見出し+本文。平板な羅列から脱し、
+// グラデ(hero-atmosphere)＋カードのリズムで「画像っぽい」上質さを出す。
+// ご利用の流れ(5ステップ)は維持。開催(エリア/曜日/人数)の具体ブロックを新規追加(実在感)。
 // 線アイコンは BrandMotif(箱庭モチーフ)と素のインライン線アイコンを併用(塗りつぶし絵文字は不可)。
 
 import type { ReactNode } from "react";
@@ -25,35 +27,35 @@ function ShieldIcon() {
     </svg>
   );
 }
-function NoChatIcon() {
-  return (
-    <svg viewBox="0 0 28 28" fill="none" aria-hidden className="h-7 w-7">
-      <path d="M5 7.5A2.5 2.5 0 0 1 7.5 5h13A2.5 2.5 0 0 1 23 7.5v8a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 3.5V18H7.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="m9 9 10 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 export type ValueItem = { icon: ReactNode; title: string; body: string };
 
-// 価値訴求5点(s9 §3.2 で文言確定)。色アイコンや絵文字は使わない。
+// 不安解消の価値4軸(s10 §4.3/§4.4 で文言確定)。ペルソナの不安に1:1で応答。
+// ①1対1は気まずい ②写真詐欺/変な人 ③ドタキャン ④手間。色アイコンや絵文字は使わない。
 export const LP_VALUES: ValueItem[] = [
-  { icon: <GroupIcon />, title: "3対3だから安心", body: "1対1の重さがありません。" },
-  { icon: <ShieldIcon />, title: "本人確認で、会う前に安心", body: "全員が本人確認を済ませます。" },
-  { icon: <NoChatIcon />, title: "アプリ内のやり取りなし", body: "会うことに集中できます。" },
   {
-    icon: <BrandMotif name="gate" className="h-7 w-7" />,
-    title: "会場は運営が手配",
-    body: "お店探しは要りません。",
+    icon: <GroupIcon />,
+    title: "3対3だから、気まずくない",
+    body: "1対1の重さがありません。はじめての人とも、場の力で自然に話せます。",
+  },
+  {
+    icon: <ShieldIcon />,
+    title: "全員、本人確認済み",
+    body: "公的身分証で確認しています。安心して会えます。",
   },
   {
     icon: <BrandMotif name="lantern" className="h-7 w-7" />,
-    title: "評価と優良バッジで質を担保",
-    body: "会った後の評価で場を整えます。",
+    title: "真剣な人だけ",
+    body: "ドタキャンには罰金があります。当日、ちゃんと集まります。",
+  },
+  {
+    icon: <BrandMotif name="gate" className="h-7 w-7" />,
+    title: "やり取り不要・会場もおまかせ",
+    body: "メッセージの往復も、お店探しも要りません。",
   },
 ];
 
-// ご利用の流れ(5ステップ / s9 §3.2)。
+// ご利用の流れ(5ステップ / s10 §4.3 = s9踏襲)。
 export const LP_STEPS: string[] = [
   "LINEではじめる",
   "本人確認（公的身分証）",
@@ -61,6 +63,10 @@ export const LP_STEPS: string[] = [
   "会を選んで応募",
   "6人で成立 → 会場をご連絡",
 ];
+
+// 開催の具体(s10 §4.3)。曜日・時刻という事実で実在感を出す(空欄やぼかし表現にしない)。
+// 将来は設定化を想定するが、現状は表示文言としてハードコード(運用と齟齬が出れば将軍が調整)。
+const AREAS = ["恵比寿", "池袋", "銀座"] as const;
 
 // セクション見出し(細い区切り線 + 任意のモチーフ脇飾り)。
 function SectionHeading({ children, motif }: { children: ReactNode; motif?: ReactNode }) {
@@ -76,14 +82,18 @@ function SectionHeading({ children, motif }: { children: ReactNode; motif?: Reac
   );
 }
 
-// 価値5点(縦リスト・編集的)。LoginScreen LP 本体で使用。
+// 不安解消の価値4点(カードのリスト / s10 §4.4)。LoginScreen LP 本体で使用。
+// カード=bg.surface + 1px line.200 + radius.md + shadow.sm + pad16。平板な羅列からの脱却。
 export function ValueList() {
   return (
-    <section className="mt-10">
-      <SectionHeading>箱庭が選ばれる理由</SectionHeading>
-      <ul className="mt-5 space-y-4">
+    <section className="mt-12">
+      <SectionHeading>不安がいらない理由</SectionHeading>
+      <ul className="mt-5 space-y-3">
         {LP_VALUES.map((v) => (
-          <li key={v.title} className="flex items-start gap-3">
+          <li
+            key={v.title}
+            className="flex items-start gap-3 rounded-md border border-line-200 bg-bg-surface p-4 shadow-sm"
+          >
             <span className="mt-0.5 shrink-0 text-accent-500" aria-hidden>
               {v.icon}
             </span>
@@ -91,7 +101,7 @@ export function ValueList() {
               <p className="font-sans text-[15px] font-semibold leading-snug text-ink-900">
                 {v.title}
               </p>
-              <p className="mt-0.5 font-sans text-[13px] leading-relaxed text-ink-500">
+              <p className="mt-1 font-sans text-[13px] leading-relaxed text-ink-500">
                 {v.body}
               </p>
             </div>
@@ -105,7 +115,7 @@ export function ValueList() {
 // ご利用の流れ(番号付き5ステップ)。
 export function FlowList() {
   return (
-    <section className="mt-9">
+    <section className="mt-10">
       <SectionHeading motif={<BrandMotif name="stepping-stones" className="h-4 w-8" />}>
         ご利用の流れ
       </SectionHeading>
@@ -124,6 +134,44 @@ export function FlowList() {
           </li>
         ))}
       </ol>
+    </section>
+  );
+}
+
+// 開催について(s10 §4.3 具体ブロック)。エリア/開催曜日・時刻/人数の事実で実在感を出す。
+function FactRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline sm:gap-4">
+      <dt className="shrink-0 font-sans text-[12px] tracking-wide text-ink-500 sm:w-16">
+        {label}
+      </dt>
+      <dd className="font-sans text-[14px] leading-7 text-ink-700">{children}</dd>
+    </div>
+  );
+}
+
+export function ConcreteBlock() {
+  return (
+    <section className="mt-10">
+      <SectionHeading>開催について</SectionHeading>
+      <dl className="mt-5 space-y-4">
+        <FactRow label="エリア">
+          <span className="flex flex-wrap gap-2">
+            {AREAS.map((area) => (
+              <span
+                key={area}
+                className="rounded-sm border border-line-200 bg-bg-sunken px-2 py-1 font-sans text-[13px] text-ink-700"
+              >
+                {area}
+              </span>
+            ))}
+          </span>
+        </FactRow>
+        <FactRow label="開催">
+          <span className="tabular-nums">水・金・土 19:30〜</span>
+        </FactRow>
+        <FactRow label="人数">男女3人ずつ・計6人</FactRow>
+      </dl>
     </section>
   );
 }

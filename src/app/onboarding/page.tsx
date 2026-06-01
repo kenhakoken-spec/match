@@ -30,7 +30,7 @@ const SLIDES: Slide[] = [
     kicker: "グループだから安心",
     title: "男女3対3で会う。",
     body: "1対1の重さはありません。はじめての人とも、場の力で自然に話せます。",
-    motif: "garden-plot",
+    motif: "leaf",
   },
   {
     kicker: "会うことに集中",
@@ -107,22 +107,18 @@ export default function OnboardingPage() {
           <GenderStep gender={gender} onChoose={chooseGender} />
         ) : (
           <>
-            {/* 編集的な添景SVG(箱庭モチーフ)。◇の空箱を廃止し、画像が無くても成立させる。 */}
-            <div
-              aria-hidden
-              className="mx-auto mb-10 flex aspect-[4/3] w-full max-w-[18rem] items-center justify-center text-line-200"
-            >
-              <BrandMotif
-                name={slide!.motif}
-                accent="#C2703D"
-                className="h-auto w-full max-w-[16rem]"
-              />
-            </div>
+            {/* S10: aspect-[4/3] の大箱(garden-plot)を廃止し、意味の通る小モチーフ(48px)を
+                見出し上に置く編集的レイアウトへ。タイポと余白で見せる(s10 §7.1/§7.3)。 */}
+            <BrandMotif
+              name={slide!.motif}
+              accent="#C2703D"
+              className="mb-6 h-12 w-12 text-line-200"
+            />
 
-            <p className="font-sans text-[13px] font-semibold tracking-wide text-accent-600">
+            <p className="font-sans text-[13px] font-semibold tracking-[0.06em] text-accent-600">
               {slide!.kicker}
             </p>
-            <h1 className="mt-2 font-serif text-[24px] leading-[1.4] text-ink-900">
+            <h1 className="mt-2 font-serif text-[26px] leading-[1.4] text-ink-900">
               {slide!.title}
             </h1>
             <p className="mt-3 max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
@@ -191,17 +187,14 @@ function GenderStep({
 }) {
   return (
     <>
-      <div
-        aria-hidden
-        className="mx-auto mb-10 flex aspect-[4/3] w-full max-w-[18rem] items-center justify-center text-line-200"
-      >
-        <BrandMotif name="garden-plot" accent="#C2703D" className="h-auto w-full max-w-[16rem]" />
+      {/* S10: garden-plot の大箱を廃止。小モチーフ leaf(48px) + kicker を横並びに(s10 §7.2)。 */}
+      <div className="flex items-center gap-3">
+        <BrandMotif name="leaf" accent="#C2703D" className="h-12 w-12 shrink-0 text-line-200" />
+        <p className="font-sans text-[13px] font-semibold tracking-[0.06em] text-accent-600">
+          はじめに
+        </p>
       </div>
-
-      <p className="font-sans text-[13px] font-semibold tracking-wide text-accent-600">
-        はじめに
-      </p>
-      <h1 className="mt-2 font-serif text-[24px] leading-[1.4] text-ink-900">
+      <h1 className="mt-3 font-serif text-[26px] leading-[1.4] text-ink-900">
         あなたについて教えてください
       </h1>
       <p className="mt-3 font-sans text-[15px] leading-7 text-ink-700">

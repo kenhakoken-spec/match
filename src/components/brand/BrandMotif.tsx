@@ -15,7 +15,7 @@ import type { CSSProperties, SVGProps } from "react";
 
 export type MotifName =
   | "mark"
-  | "garden-plot"
+  | "leaf"
   | "lantern"
   | "gate"
   | "stepping-stones";
@@ -32,7 +32,7 @@ const ACCENT_VAR = "--brand-accent" as const;
 
 const VIEWBOX: Record<MotifName, string> = {
   mark: "0 0 44 44",
-  "garden-plot": "0 0 320 200",
+  leaf: "0 0 48 48",
   lantern: "0 0 64 64",
   gate: "0 0 64 64",
   "stepping-stones": "0 0 96 48",
@@ -78,23 +78,21 @@ const SHAPES: Record<MotifName, React.ReactNode> = {
       <circle cx="28.5" cy="31.5" r="1.1" fill="currentColor" />
     </>
   ),
-  // 小さな庭の俯瞰: 区画・飛び石・植え込み + ○6つ(3対3=6人の暗喩、顔は描かない)。
-  "garden-plot": (
+  // やわらかい葉が2枚、芽から伸びる素描(s10 §3.2)。「庭・成長・やわらかさ」を1ストロークで。
+  // garden-plot(俯瞰の製図)の置換＝解読を強いない情緒的な小モチーフ。少し不均一な曲線・葉脈1本。
+  // accent は芽の先端の小さな点1つのみ(s9 §2.1: 1 SVG につき accent 最大1点)。
+  leaf: (
     <>
-      <rect x="18.5" y="22.5" width="283" height="155" rx="8" stroke="currentColor" strokeWidth="1.4" />
-      <line x1="160" y1="22.5" x2="160" y2="177.5" stroke="currentColor" strokeWidth="1" opacity="0.55" />
-      <line x1="18.5" y1="100" x2="301.5" y2="100" stroke="currentColor" strokeWidth="1" opacity="0.55" />
-      <ellipse cx="92" cy="148" rx="13" ry="6.5" stroke="currentColor" strokeWidth="1.2" opacity="0.8" />
-      <ellipse cx="128" cy="132" rx="10.5" ry="5.5" stroke="currentColor" strokeWidth="1.2" opacity="0.8" />
-      <ellipse cx="160" cy="118" rx="8.5" ry="4.5" stroke="currentColor" strokeWidth="1.2" opacity="0.8" />
-      <path d="M232 78V52M222 62l10-9 10 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M262 78V58M254 65l8-7 8 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="62" cy="56" r="6" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="92" cy="56" r="6" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="122" cy="56" r="6" stroke={ACCENT_STROKE} strokeWidth="1.6" />
-      <circle cx="206" cy="148" r="6" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="236" cy="148" r="6" stroke="currentColor" strokeWidth="1.3" />
-      <circle cx="266" cy="148" r="6" stroke="currentColor" strokeWidth="1.3" />
+      {/* 茎 */}
+      <path d="M24 40C24 30 24 24 24 16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      {/* 葉(左) */}
+      <path d="M24 26C16 24 11 18 12 11C20 12 25 18 24 26Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      {/* 葉(右) */}
+      <path d="M24 22C31 19 36 21 38 15C31 12 26 16 24 22Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+      {/* 葉脈(左の中心線・1本だけ) */}
+      <path d="M22.5 24C19 22 16.5 18.5 15.5 15" stroke="currentColor" strokeWidth="1" opacity="0.6" strokeLinecap="round" />
+      {/* 芽の先端の差し色1点 */}
+      <circle cx="24" cy="13.5" r="1.6" fill={ACCENT_STROKE} stroke="none" />
     </>
   ),
   // 石灯籠 — 「安心・灯り」。

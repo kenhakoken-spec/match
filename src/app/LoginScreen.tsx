@@ -1,31 +1,36 @@
 "use client";
 
-// U-00 入口 / LINEログイン — HAKO-NIWA(箱庭) のLP兼ログイン (wireframes U-00 / s9 §3.2)。
-// 縦構成: ロックアップ → ヒーロー(タグライン+主見出し明朝+箱庭SVG添景) → 価値5点 →
-// ご利用の流れ → 固定フッタの2導線(LINEではじめる / 会を見てみる) → 規約。
-// 画像が一枚も無くても、タイポ+余白+最小SVGで品よく成立する(s9 §3.4: 枠だけ残る事故ゼロ)。
+// U-00 入口 / LINEログイン — HAKO-NIWA(箱庭) のLP兼ログイン (wireframes U-00 / s10-redesign §4)。
 //
-// NOTE: ログインロジック(runLogin/handleLogin/自動再開useEffect/error)は挙動不変で維持。
-// S9 で変えたのはビジュアルとコピー、および副CTA(会を見てみる→/explore)の追加のみ。
+// S10 全面リデザイン: スクロール型の通常フローLP。固定フッタCTAを廃止し(本文被りの構造的解消)、
+// 主CTAをヒーロー内・末尾にも再掲。縦構成:
+//   ロックアップ → ヒーロー(タグライン+主見出し明朝+サブ見出し+CSSアトモスフィア+主従CTA+LINE外案内)
+//   → 不安解消の価値4カード → ご利用の流れ → 開催について(具体) → 末尾CTA再掲 → 規約。
+// ビジュアルは hero-atmosphere(テラコッタ+深緑のradial-gradient / globals.css §9)で「あたたかい庭」
+// の空気を出す。画像が一枚も無くても、タイポ+余白+グラデ+カードで品よく成立する。
+//
+// NOTE: ログインロジック(runLogin/handleLogin/自動再開useEffect/lineLogin呼び出し/error state)は
+// 挙動不変で維持。S10 で変えたのはビジュアル・コピー・CTA配置・error文言のみ(s10 §8)。
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { lineLogin } from "./_lib/liff-login";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { BrandLockup } from "@/components/brand/BrandLockup";
-import { BrandMotif } from "@/components/brand/BrandMotif";
-import { FlowList, ValueList } from "@/components/brand/LpSections";
+import { ConcreteBlock, FlowList, ValueList } from "@/components/brand/LpSections";
 
-// エラーコード→ユーザー向け日本語（原因が分かるように。煽らない静かな文言）。
+// エラーコード→ユーザー向け日本語(s10 §8.2)。原因＋「次の一手」を必ず添える。
+// 責めない・煽らない・感嘆符なし(design-system §0)。環境要因が主なので赤(danger)にはしない(§8.2)。
 function errorMessage(code: string | undefined): string {
-  if (!code) return "ログインに失敗しました。もう一度お試しください。";
+  if (!code)
+    return "ログインに失敗しました。もう一度「LINEではじめる」を押してお試しください。";
   if (code.startsWith("token_exchange_failed"))
-    return "LINEの確認に失敗しました（トークン検証エラー）。時間をおいて再度お試しください。";
+    return "LINEの確認に失敗しました。少し時間をおいて、もう一度「LINEではじめる」を押してください。";
   if (code === "no_id_token")
-    return "LINEのIDトークンを取得できませんでした。LINEアプリ内から開いているかご確認ください。";
+    return "LINEの確認情報を取得できませんでした。お手数ですが、スマホのLINEアプリ内からこのページを開いて、もう一度お試しください。";
   if (code.startsWith("liff_init_failed"))
-    return "LINE連携の初期化に失敗しました。LINEアプリ内から開いてお試しください。";
-  return "ログインに失敗しました。もう一度お試しください。";
+    return "LINE連携の準備に失敗しました。通信環境をご確認のうえ、スマホのLINEアプリ内から開き直してお試しください。";
+  return "ログインに失敗しました。もう一度「LINEではじめる」を押してお試しください。";
 }
 
 export function LoginScreen() {
@@ -73,53 +78,91 @@ export function LoginScreen() {
     void runLogin();
   }
 
+  // 主CTA(LINEではじめる)。ヒーローと末尾で再掲するため共通化(挙動は同一の handleLogin)。
+  // testid はヒーロー側を canonical(login-button)とし、末尾は別 testid にして衝突を避ける。
+  const primaryCta = (testid: string) => (
+    <Button data-testid={testid} onClick={handleLogin} disabled={loading}>
+      {loading ? "接続しています…" : "LINEではじめる"}
+    </Button>
+  );
+
   return (
-    <main className="flex min-h-[100dvh] flex-col px-6 pb-44 pt-16">
-      <div className="pt-8">
-        <BrandLockup />
+    <main className="flex min-h-[100dvh] flex-col px-6 pb-12 pt-16">
+      <BrandLockup />
 
-        {/* ヒーロー: タグライン → 主見出し(明朝) → 箱庭の添景SVG → 説明 */}
-        <p className="mt-10 font-sans text-[18px] font-bold leading-snug text-accent-600">
-          みんなが出会える場所
-        </p>
-        <h1 className="mt-3 font-serif text-[28px] leading-[1.35] text-ink-900">
-          3対3で、会いにいく。
-        </h1>
+      {/* ヒーロー(ファーストビュー)。relative isolate で z-index を閉じ、背後にアトモスフィア。
+          CTAはこの前景の中＝固定ではないので本文に被らない(s10 §4.5/§5.2)。 */}
+      <section className="relative isolate mt-10 overflow-hidden">
+        <div className="hero-atmosphere" aria-hidden />
 
-        {/* 写真の代替＝箱庭の添景。写真が無くても常に描画され、枠だけ残る事故が起きない。 */}
-        <div className="mt-7 flex justify-center">
-          <BrandMotif
-            name="garden-plot"
-            accent="#C2703D"
-            className="h-auto w-full max-w-[20rem] text-line-200"
-          />
-        </div>
-
-        <p className="mt-7 max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
-          男女3人ずつ、計6人で会う、安心できる出会いの場です。
-          会場はこちらで手配します。
-        </p>
-
-        <ValueList />
-        <FlowList />
-      </div>
-
-      {/* 固定フッタ: 主導線(LINEではじめる) + 副導線(会を見てみる) + 規約。 */}
-      <div className="fixed inset-x-0 bottom-0 mx-auto max-w-app space-y-3 border-t border-line-200 bg-bg-surface px-6 pb-5 pt-3 shadow-md">
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-state-warn/45 bg-[#F7EFD9] px-3 py-2 text-center font-sans text-[13px] leading-relaxed text-state-warn"
-          >
-            {error}
+        <div className="relative pb-2 pt-2">
+          {/* タグライン(小さなキャッチ・字間広め)。主見出しを引き立てる(s10 §2.4)。 */}
+          <p className="font-sans text-[13px] font-bold tracking-[0.08em] text-accent-600">
+            みんなが出会える場所
           </p>
-        ) : null}
-        <Button data-testid="login-button" onClick={handleLogin} disabled={loading}>
-          {loading ? "接続しています…" : "LINEではじめる"}
-        </Button>
-        <ButtonLink href="/explore" variant="secondary" data-testid="explore-cta">
-          会を見てみる
-        </ButtonLink>
+          {/* 主見出し(明朝・display強化 / s10 §2.4)。 */}
+          <h1 className="mt-3 font-serif text-[32px] leading-[1.3] tracking-[-0.01em] text-ink-900">
+            3対3で、会いにいく。
+          </h1>
+
+          {/* サブ見出し＝3秒で「誰のための/何が違う」を出す。グラデ上でも可読性を確保するため
+              白面カードに載せAAを担保(s10 §2.3/§4.5)。 */}
+          <div className="mt-5 rounded-md border border-line-200 bg-bg-surface/70 p-4 shadow-sm backdrop-blur-[2px]">
+            <p className="max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
+              男女3人ずつ、計6人で会います。1対1の気まずさも、写真詐欺の不安もありません。本人確認を済ませた相手と、会場の手配までおまかせで。
+            </p>
+          </div>
+
+          {/* エラー表示は主CTAの直上(押した場所の近くで結果が見える / s10 §8.2)。
+              state/warn 系の淡い橙地。赤(danger)にはしない。 */}
+          {error ? (
+            <p
+              role="alert"
+              className="mt-5 rounded-md border border-state-warn/45 bg-[#F7EFD9] px-3 py-2 font-sans text-[13px] leading-relaxed text-state-warn"
+            >
+              {error}
+            </p>
+          ) : null}
+
+          {/* 主従CTA(ヒーロー内)。 */}
+          <div className="mt-5 space-y-3">
+            {primaryCta("login-button")}
+            <ButtonLink href="/explore" variant="secondary" data-testid="explore-cta">
+              会を見てみる
+            </ButtonLink>
+          </div>
+
+          {/* LINE外案内を常設(エラーが無くても / s10 §8.1)。押す前に前提を理解できる。 */}
+          <p className="mt-3 font-sans text-[13px] leading-relaxed text-ink-500">
+            スマホのLINEで開くと、そのまま進めます。
+          </p>
+        </div>
+      </section>
+
+      {/* 不安解消の価値4カード → ご利用の流れ → 開催について(具体) */}
+      <ValueList />
+      <FlowList />
+      <ConcreteBlock />
+
+      {/* 末尾CTA(再掲)。スクロールしきった人を取りこぼさない。淡い accent 地で締める(s10 §4.2)。 */}
+      <section className="mt-12 rounded-lg border border-line-200 bg-accent-100/60 p-6">
+        <h2 className="text-center font-serif text-[18px] leading-snug text-ink-900">
+          まずは、のぞいてみませんか。
+        </h2>
+        <div className="mt-4 space-y-3">
+          {primaryCta("login-button-bottom")}
+          <ButtonLink
+            href="/explore"
+            variant="secondary"
+            data-testid="explore-cta-bottom"
+          >
+            会を見てみる
+          </ButtonLink>
+        </div>
+      </section>
+
+      {/* 規約・特商法(小さく)。 */}
+      <div className="mt-8 space-y-2">
         <p className="text-center font-sans text-xs leading-relaxed text-ink-500">
           続行すると{" "}
           <a href="/legal/terms" className="text-accent-500 underline">
