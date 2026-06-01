@@ -107,6 +107,12 @@ export function LoginScreen() {
         <Button data-testid="login-button" onClick={handleLogin} disabled={loading}>
           {loading ? "接続しています…" : "LINEではじめる"}
         </Button>
+        {/* 一時診断リンク（原因確定後に削除）。 */}
+        <p className="text-center">
+          <a href="/line-debug" className="font-sans text-[11px] text-ink-300 underline">
+            （診断）
+          </a>
+        </p>
         <p className="text-center font-sans text-xs leading-relaxed text-ink-500">
           続行すると{" "}
           <a href="/legal/terms" className="text-accent-500 underline">
