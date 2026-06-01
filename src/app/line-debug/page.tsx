@@ -1,88 +1,57 @@
 "use client";
 
-// /line-debug — LINEログインの失敗原因を「実データで」確定するための一時診断ページ。
-//
-// 使い方:
-//   1) スマホLINEで https://liff.line.me/2010236765-saeVnKMD?diag=1 を開く
-//      （または通常ログイン後、戻ってきた画面のURLを /line-debug に差し替えて開く）
-//   2) このページが liff.init → 各種状態 + URLクエリ(LINEが付けた error 等) を画面表示
-//   3) 表示内容をそのまま開発将軍に伝える → 原因確定
-//
-// 値の安全性: id_token は**先頭12文字 + 長さ**のみ表示（全体は出さない）。
-//   profile も displayName のみ。lineUserId 等の生PIIはこのページからサーバに送らない。
-// 一時診断用。原因確定後に削除する。
+// /line-debug — LINEログイン診断（強化版）。各項目にラベルを明示し、
+// 「ログイン実行」ボタンで liff.login() を発火→戻り後の状態を観測できる。
+// 値の安全性: id_token は先頭12文字+長さのみ。生PIIはサーバに送らない。一時診断用。
 
 import { useEffect, useState } from "react";
-
-interface Diag {
-  step: string;
-  liffId: string;
-  url: string;
-  query: Record<string, string>;
-  isInClient?: boolean;
-  isLoggedIn?: boolean;
-  os?: string;
-  idTokenLen?: number;
-  idTokenHead?: string;
-  accessTokenLen?: number;
-  displayName?: string;
-  initError?: string;
-  exchangeStatus?: number;
-  exchangeBody?: string;
-}
 
 const LIFF_ID = process.env.NEXT_PUBLIC_LIFF_ID ?? "";
 
 export default function LineDebugPage() {
-  const [d, setD] = useState<Diag>({
-    step: "start",
-    liffId: LIFF_ID || "(NEXT_PUBLIC_LIFF_ID 未設定)",
-    url: typeof window !== "undefined" ? window.location.href : "",
-    query: {},
-  });
+  const [lines, setLines] = useState<Array<[string, string]>>([]);
+  const [liffRef, setLiffRef] = useState<unknown>(null);
 
   useEffect(() => {
     (async () => {
+      const push = (k: string, v: unknown) =>
+        setLines((p) => [...p, [k, typeof v === "object" ? JSON.stringify(v) : String(v ?? "")]]);
+
       const query: Record<string, string> = {};
-      if (typeof window !== "undefined") {
-        new URLSearchParams(window.location.search).forEach((v, k) => {
-          query[k] = v;
-        });
-      }
-      const next: Diag = {
-        step: "collecting",
-        liffId: LIFF_ID || "(未設定)",
-        url: typeof window !== "undefined" ? window.location.href : "",
-        query,
-      };
+      if (typeof window !== "undefined")
+        new URLSearchParams(window.location.search).forEach((v, k) => (query[k] = v));
+
+      push("NEXT_PUBLIC_LIFF_ID", LIFF_ID || "(未設定!)");
+      push("current URL", typeof window !== "undefined" ? window.location.href : "");
+      push("URL query", query);
+
       try {
         const liff = (await import("@line/liff")).default;
-        next.step = "init";
-        await liff.init({ liffId: LIFF_ID });
-        next.step = "initialized";
-        next.isInClient = liff.isInClient();
-        next.isLoggedIn = liff.isLoggedIn();
+        setLiffRef(liff);
+        push("import @line/liff", "ok");
         try {
-          next.os = String(liff.getOS?.() ?? "");
-        } catch {
-          /* noop */
+          await liff.init({ liffId: LIFF_ID });
+          push("liff.init", "SUCCESS");
+        } catch (e) {
+          push("liff.init", "FAILED: " + (e instanceof Error ? e.message : String(e)));
+          return;
         }
+        push("isInClient (LINEアプリ内か)", liff.isInClient());
+        push("isLoggedIn", liff.isLoggedIn());
+        try {
+          push("getOS", String(liff.getOS?.() ?? ""));
+        } catch {}
+        try {
+          push("getVersion", String(liff.getVersion?.() ?? ""));
+        } catch {}
+        try {
+          push("getLineVersion", String(liff.getLineVersion?.() ?? ""));
+        } catch {}
+
         if (liff.isLoggedIn()) {
           const idt = liff.getIDToken() ?? "";
-          next.idTokenLen = idt.length;
-          next.idTokenHead = idt.slice(0, 12);
-          try {
-            next.accessTokenLen = (liff.getAccessToken() ?? "").length;
-          } catch {
-            /* noop */
-          }
-          try {
-            const p = await liff.getProfile();
-            next.displayName = p.displayName;
-          } catch {
-            /* noop */
-          }
-          // サーバ交換も試して status を見る（成功すれば原因はUI側だった証拠）。
+          push("idToken len", idt.length);
+          push("idToken head", idt.slice(0, 12));
           if (idt) {
             try {
               const res = await fetch("/api/auth/line", {
@@ -91,50 +60,55 @@ export default function LineDebugPage() {
                 body: JSON.stringify({ idToken: idt }),
                 cache: "no-store",
               });
-              next.exchangeStatus = res.status;
-              next.exchangeBody = (await res.text()).slice(0, 200);
+              push("exchange status", res.status);
+              push("exchange body", (await res.text()).slice(0, 200));
             } catch (e) {
-              next.exchangeBody = "fetch error: " + (e instanceof Error ? e.message : "?");
+              push("exchange", "fetch err " + (e instanceof Error ? e.message : "?"));
             }
           }
+        } else {
+          push("→ 次の操作", "下の「ログイン実行」を押す");
         }
-        next.step = "done";
       } catch (e) {
-        next.step = "init_failed";
-        next.initError = e instanceof Error ? e.message : String(e);
+        push("FATAL", e instanceof Error ? e.message : String(e));
       }
-      setD(next);
     })();
   }, []);
 
-  const row = (k: string, v: unknown) => (
-    <div style={{ display: "flex", gap: 8, padding: "4px 0", borderBottom: "1px solid #eee" }}>
-      <span style={{ minWidth: 130, color: "#888", fontSize: 12 }}>{k}</span>
-      <span style={{ fontSize: 12, wordBreak: "break-all" }}>
-        {typeof v === "object" ? JSON.stringify(v) : String(v ?? "")}
-      </span>
-    </div>
-  );
+  async function doLogin() {
+    const liff = liffRef as { login?: (o?: unknown) => void } | null;
+    if (liff?.login) liff.login();
+  }
 
   return (
-    <main style={{ padding: 16, fontFamily: "monospace", maxWidth: 480 }}>
-      <h1 style={{ fontSize: 16, marginBottom: 12 }}>LINE ログイン診断</h1>
-      {row("step", d.step)}
-      {row("liffId", d.liffId)}
-      {row("url", d.url)}
-      {row("query", d.query)}
-      {row("isInClient", d.isInClient)}
-      {row("isLoggedIn", d.isLoggedIn)}
-      {row("os", d.os)}
-      {row("idToken len", d.idTokenLen)}
-      {row("idToken head", d.idTokenHead)}
-      {row("accessToken len", d.accessTokenLen)}
-      {row("displayName", d.displayName)}
-      {row("init error", d.initError)}
-      {row("exchange status", d.exchangeStatus)}
-      {row("exchange body", d.exchangeBody)}
-      <p style={{ fontSize: 11, color: "#aaa", marginTop: 16 }}>
-        ※ 一時診断ページ。id_token は先頭12文字のみ表示。原因確定後に削除します。
+    <main style={{ padding: 16, fontFamily: "monospace", maxWidth: 520 }}>
+      <h1 style={{ fontSize: 16, marginBottom: 12 }}>LINE ログイン診断 v2</h1>
+      {lines.map(([k, v], i) => (
+        <div
+          key={i}
+          style={{ display: "flex", gap: 8, padding: "5px 0", borderBottom: "1px solid #eee" }}
+        >
+          <span style={{ minWidth: 150, color: "#888", fontSize: 12 }}>{k}</span>
+          <span style={{ fontSize: 12, wordBreak: "break-all" }}>{v}</span>
+        </div>
+      ))}
+      <button
+        onClick={doLogin}
+        style={{
+          marginTop: 16,
+          padding: "10px 16px",
+          background: "#C2703D",
+          color: "#fff",
+          border: 0,
+          borderRadius: 6,
+          fontSize: 14,
+        }}
+      >
+        ログイン実行 (liff.login)
+      </button>
+      <p style={{ fontSize: 11, color: "#aaa", marginTop: 12 }}>
+        ボタンを押す→LINE同意→このページに戻る。戻ったら上の「URL query」と「isLoggedIn」を確認。
+        id_token は先頭12文字のみ表示。原因確定後に削除します。
       </p>
     </main>
   );
