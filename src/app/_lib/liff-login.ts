@@ -67,30 +67,21 @@ export async function lineLogin(): Promise<LineLoginResult> {
     await liff.init({ liffId: LIFF_ID });
 
     if (!liff.isLoggedIn()) {
-      // 未ログイン → LINE ログインへ。戻り先を origin に固定（クエリ汚染で再初期化が
-      // 崩れるのを防ぐ）。openid/profile を明示要求し id_token を確実に得る。
-      const redirectUri =
-        typeof window !== "undefined"
-          ? window.location.origin + "/"
-          : undefined;
-      liff.login({ redirectUri });
+      // 未ログイン → LINE ログインへ。**redirectUri は明示しない**。
+      // LIFF は liff.line.me 経由で認可するため、redirectUri を渡すと LINE Login の
+      // Callback URL 照合に回り、未登録だと「正常に処理できませんでした」になる。
+      // 既定（LIFF Endpoint へ戻る）に任せるのが正しい。
+      liff.login();
       // login() はリダイレクトするため、ここには通常戻らない。
       return { ok: false, method: "liff", error: "redirecting_to_line_login" };
     }
 
     // ログイン済み。id_token を取得（openid 同意済み前提）。
-    let idToken = liff.getIDToken();
+    const idToken = liff.getIDToken();
 
-    // 同意直後で id_token がまだ無い/期限切れのことがある。取れなければ
-    // 一度だけログインを取り直してから再取得する（無限ループ防止に query で制御）。
+    // id_token が取れない（同意直後の取りこぼし・scope設定等）→ サーバに空送信すると
+    // 400 になるので送らず明示失敗にする（redirectUri 明示の再ログインはしない）。
     if (!idToken) {
-      const url = new URL(window.location.href);
-      if (!url.searchParams.has("liffRetry")) {
-        url.searchParams.set("liffRetry", "1");
-        liff.login({ redirectUri: url.toString() });
-        return { ok: false, method: "liff", error: "relogin_for_id_token" };
-      }
-      // 既にリトライ済みでも取れない → スコープ/設定の問題。送らず明示失敗。
       return { ok: false, method: "liff", error: "no_id_token" };
     }
 

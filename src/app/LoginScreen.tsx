@@ -39,10 +39,7 @@ export function LoginScreen() {
     const result = await lineLogin();
     if (result.ok) {
       router.push("/onboarding");
-    } else if (
-      result.error === "redirecting_to_line_login" ||
-      result.error === "relogin_for_id_token"
-    ) {
+    } else if (result.error === "redirecting_to_line_login") {
       // LINEログインへ遷移中。ボタンは押下状態のまま（戻ってきたら自動再開）。
       return;
     } else {
@@ -59,7 +56,7 @@ export function LoginScreen() {
     if (typeof window === "undefined") return;
     const qs = window.location.search;
     const returnedFromLine =
-      qs.includes("code=") || qs.includes("liff.state") || qs.includes("liffRetry");
+      qs.includes("code=") || qs.includes("liff.state");
     if (returnedFromLine) {
       startedRef.current = true;
       void runLogin();
