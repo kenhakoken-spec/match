@@ -72,6 +72,26 @@ export default function LineDebugPage() {
         } catch (e) {
           push(">>> exchange", "fetch err " + (e instanceof Error ? e.message : "?"));
         }
+
+        // verify API の生応答（401の真因＝verifyが何を返すか）。
+        try {
+          const vr = await fetch("/api/_debug-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken: idt }),
+            cache: "no-store",
+          });
+          const vj = await vr.json();
+          push("=== verify生応答 ===", "");
+          push("verifyStatus", vj.verifyStatus);
+          push("verify_error", vj.verify_error);
+          push("verify_error_description", vj.verify_error_description);
+          push("verify_aud", vj.verify_aud);
+          push("audMatchesChannel", vj.audMatchesChannel);
+          push("channelIdValue", vj.channelIdValue);
+        } catch (e) {
+          push("verify生応答", "err " + (e instanceof Error ? e.message : "?"));
+        }
       } catch (e) {
         push("FATAL", e instanceof Error ? e.message : String(e));
       }
