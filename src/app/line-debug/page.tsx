@@ -75,7 +75,7 @@ export default function LineDebugPage() {
 
         // verify API の生応答（401の真因＝verifyが何を返すか）。
         try {
-          const vr = await fetch("/api/_debug-verify", {
+          const vr = await fetch("/api/debug-verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken: idt }),
