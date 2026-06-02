@@ -15,7 +15,7 @@
 // 同席者リストは GET /api/ratings/pending（未評価の人だけ残る）から該当 slot を引く。
 // done を作る導線が無い MOCK 環境でも FALLBACK で画面が成立する。
 
-import { use, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { ErrorState, LoadingState } from "@/components/States";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -67,12 +67,13 @@ function axesComplete(d: MemberDraft): boolean {
   return d.scoreAgain >= 1 && d.scoreTalk >= 1 && d.scoreManner >= 1;
 }
 
+// Next.js 14 では params は同期。use(params) は React error #438 でクラッシュするため同期で受ける。
 export default function RatingDetailPage({
   params,
 }: {
-  params: Promise<{ slotId: string }>;
+  params: { slotId: string };
 }) {
-  const { slotId } = use(params);
+  const { slotId } = params;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [event, setEvent] = useState<PendingRatingDTO | null>(null);

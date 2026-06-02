@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { PageBody, Card, SectionLabel, StickyFooter } from "@/components/ui/Surface";
 import { StatusPill } from "@/components/ui/StatusPill";
@@ -34,12 +34,13 @@ import { ApiCallError } from "@/app/_lib/api";
 
 type Phase = "loading" | "ready" | "paying" | "done" | "error";
 
+// Next.js 14 では params は同期。use(params) は React error #438 でクラッシュするため同期で受ける。
 export default function PaymentPage({
   params,
 }: {
-  params: Promise<{ slotId: string }>;
+  params: { slotId: string };
 }) {
-  const { slotId } = use(params);
+  const { slotId } = params;
 
   const [intent, setIntent] = useState<PaymentIntentResponse | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");

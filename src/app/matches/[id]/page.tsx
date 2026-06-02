@@ -9,7 +9,7 @@
 // venue=null・members=[] なので「会場を手配中です」を静かに出す。メンバーは PII 最小
 // (displayName + gender のみ)。GET /api/matches/[id] → { match: MatchDetailDTO }。
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { ErrorState, LoadingState } from "@/components/States";
 import { ButtonLink } from "@/components/ui/Button";
@@ -20,8 +20,10 @@ import { formatDateShort, formatTime } from "@/app/_lib/datetime";
 import { areaLabel } from "@/app/_lib/slots-ui";
 import { GENDER_LABELS } from "@/app/_lib/types";
 
-export default function MatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+// Next.js 14 では params は同期オブジェクト（Promiseではない）。use(params) は
+// React error #438 でクラッシュするため、/slots/[id] と同じ同期paramsに統一。
+export default function MatchDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [match, setMatch] = useState<MatchDetailDTO | null>(null);

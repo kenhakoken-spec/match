@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 const url = process.argv[2];
 const out = process.argv[3];
-const browser = await chromium.connectOverCDP("http://127.0.0.1:9223");
+const browser = await chromium.connectOverCDP("http://127.0.0.1:9224");
 try {
   const ctx = browser.contexts()[0];
   const page = await ctx.newPage();
