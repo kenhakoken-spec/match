@@ -24,9 +24,9 @@ export default function IdentityUploadPage() {
   const router = useRouter();
   const [docType, setDocType] = useState<IdDocType | null>(null);
   const [frontFile, setFrontFile] = useState<File | null>(null);
-  const [backFile, setBackFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // S11 #6: 表面のみ必須（裏面は廃止）。顔写真付きの表面で年齢・本人確認は足りる。
   const canSubmit = docType !== null && frontFile !== null && !submitting;
 
   async function handleSubmit() {
@@ -34,9 +34,6 @@ export default function IdentityUploadPage() {
     setSubmitting(true);
     try {
       const { blobRef } = await uploadIdentityImage(frontFile);
-      // (Back image is uploaded too when present; S1 submit references the
-      //  front blobRef per contract §2 — kept simple for the mock.)
-      if (backFile) await uploadIdentityImage(backFile);
       await submitIdentity({ docType, blobRef });
       router.push("/identity/status");
     } finally {
@@ -106,14 +103,8 @@ export default function IdentityUploadPage() {
             capture
             onSelect={setFrontFile}
           />
-          <PhotoPicker
-            label="裏面（必要な場合）"
-            capture
-            onSelect={setBackFile}
-            hint="運転免許証など、裏面がある書類のみ"
-          />
           <p className="font-sans text-xs leading-relaxed text-ink-500">
-            氏名 / 生年月日 / 顔がはっきり写るように撮影してください。
+            顔写真付きの表面のみで大丈夫です。氏名 / 生年月日 / 顔がはっきり写るように撮影してください。
           </p>
         </section>
       </PageBody>
@@ -124,11 +115,11 @@ export default function IdentityUploadPage() {
         </Button>
         <button
           type="button"
-          onClick={() => router.push("/identity/status")}
+          onClick={() => router.push("/explore")}
           className="mt-2 flex min-h-[44px] w-full items-center justify-center gap-2 font-sans text-[13px] text-ink-500 hover:text-ink-700"
         >
-          あとで
-          <span className="text-xs text-ink-300">※ 応募はできません</span>
+          あとで（まず会を見る）
+          <span className="text-xs text-ink-300">※ 応募には本人確認が必要です</span>
         </button>
       </StickyFooter>
     </div>

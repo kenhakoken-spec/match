@@ -21,11 +21,15 @@ const sizeByVariant: Record<Variant, string> = {
   danger: "h-12 px-3",
 };
 
+// S11 #4: 「押せる」アフォーダンスを強化。トーン(テラコッタaccent・角丸)は維持しつつ、
+// primary は影＋押下フィードバック(active:scale/translate)で立体感とタップ実感を出す。
+// secondary も陰影を少し付け、輪郭を明確化。
 const enabledByVariant: Record<Variant, string> = {
-  primary: "bg-accent-600 text-white hover:bg-accent-600/90 active:bg-accent-600",
+  primary:
+    "bg-accent-600 text-white shadow-[0_2px_8px_rgba(176,70,60,0.28)] hover:bg-accent-600/95 hover:shadow-[0_4px_14px_rgba(176,70,60,0.34)] active:translate-y-px active:shadow-[0_1px_4px_rgba(176,70,60,0.28)] active:bg-accent-600",
   secondary:
-    "border border-line-200 bg-transparent text-ink-700 hover:bg-bg-sunken active:bg-bg-sunken",
-  text: "bg-transparent text-accent-500 hover:underline",
+    "border border-line-200 bg-bg-surface text-ink-700 shadow-[0_1px_3px_rgba(43,38,34,0.06)] hover:bg-bg-sunken hover:border-ink-300 active:translate-y-px active:bg-bg-sunken",
+  text: "bg-transparent text-accent-600 hover:underline",
   danger: "bg-transparent text-state-danger hover:underline",
 };
 

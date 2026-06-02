@@ -198,7 +198,7 @@ function GenderStep({
         あなたについて教えてください
       </h1>
       <p className="mt-3 font-sans text-[15px] leading-7 text-ink-700">
-        料金や表示の最適化に使います。
+        男女3人ずつで会うため、最初に教えてください。
       </p>
 
       <div
