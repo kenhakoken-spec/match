@@ -13,6 +13,8 @@ import { useEffect, useMemo, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/States";
 import { SlotCard } from "@/components/slots/SlotCard";
+import { SlotCalendar } from "@/components/slots/SlotCalendar";
+import { ViewToggle, type SlotView } from "@/components/slots/ViewToggle";
 import { BrowseStatusBanner } from "@/components/slots/BrowseStatusBanner";
 import { fetchSlots, type SlotDTO } from "@/app/_lib/api-s2";
 import { getMe } from "@/app/_lib/api";
@@ -25,6 +27,7 @@ export default function BrowsePage() {
   const [error, setError] = useState(false);
   const [slots, setSlots] = useState<SlotDTO[]>([]);
   const [me, setMe] = useState<MeResponse | null>(null);
+  const [view, setView] = useState<SlotView>("list"); // 既定リスト(s11 §3.2)
 
   async function load() {
     setLoading(true);
@@ -57,6 +60,15 @@ export default function BrowsePage() {
     [slots],
   );
 
+  // 一覧・カレンダーで同じカードを使う(#2 日付主役カード / s11 §3.6)。
+  const renderCard = (slot: SlotDTO) => (
+    <SlotCard
+      slot={slot}
+      hint={viewer ? listHint(slot, viewer) : undefined}
+      viewerGender={me?.profile?.gender ?? null}
+    />
+  );
+
   return (
     <>
       <AppHeader title="枠をさがす" />
@@ -79,17 +91,30 @@ export default function BrowsePage() {
               data-testid="empty"
             />
           ) : (
-            <ul className="space-y-3" data-testid="slot-list">
-              {sorted.map((slot) => (
-                <li key={slot.id}>
-                  <SlotCard
-                    slot={slot}
-                    hint={viewer ? listHint(slot, viewer) : undefined}
-                    viewerGender={me?.profile?.gender ?? null}
+            <>
+              {/* リスト／カレンダー トグル(#3 / s11 §3.2)。取得ゼロ時は出さない。 */}
+              <div className="mb-4 flex justify-center">
+                <ViewToggle value={view} onChange={setView} />
+              </div>
+
+              {view === "list" ? (
+                <ul className="space-y-3" data-testid="slot-list">
+                  {sorted.map((slot) => (
+                    <li key={slot.id}>{renderCard(slot)}</li>
+                  ))}
+                </ul>
+              ) : (
+                <div data-testid="slot-calendar">
+                  <SlotCalendar
+                    slots={sorted}
+                    isoOf={(s) => s.datetimeStart}
+                    keyOf={(s) => s.id}
+                    renderCard={renderCard}
+                    emptyMonthBody="翌月以降に順次公開します。"
                   />
-                </li>
-              ))}
-            </ul>
+                </div>
+              )}
+            </>
           )}
         </main>
       )}

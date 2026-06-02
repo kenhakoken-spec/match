@@ -13,7 +13,7 @@ import { FillDots } from "@/components/slots/FillDots";
 import { SlotConditionChips } from "@/components/slots/SlotConditionChips";
 import { fetchPublicSlotDetail } from "@/app/_lib/api-public";
 import { areaLabel, yen } from "@/app/_lib/slots-ui";
-import { formatDateShort, formatTime } from "@/app/_lib/datetime";
+import { jstDateParts, weekdayColorClass } from "@/app/_lib/datetime";
 import { PublicMemberCard } from "@/components/public/PublicMemberCard";
 import { RegisterCta } from "@/components/public/RegisterCta";
 import type { PublicSlotDetailDTO } from "@/lib/types";
@@ -92,13 +92,26 @@ export default function ExploreDetailPage({ params }: { params: { id: string } }
       <AppHeader title="会の詳細" backHref="/explore" />
 
       <main className="flex-1 px-5 pb-28 pt-4">
-        {/* 見出し: エリア・日時・人数・条件チップ */}
+        {/* 見出し(s11 §2.4 日付主役): 「6月13日(金)」明朝＋曜日色＋時刻、エリアはチップに格下げ。 */}
         <header>
-          <h1 className="font-serif text-[22px] text-ink-900">{areaLabel(detail.area)}エリア</h1>
-          <p className="mt-1 font-sans text-[15px] tabular-nums text-ink-700">
-            {formatDateShort(detail.datetimeStart)} {formatTime(detail.datetimeStart)}〜
-          </p>
-          <p className="mt-0.5 font-sans text-[13px] text-ink-500">3 対 3（男女各3名）</p>
+          {(() => {
+            const p = jstDateParts(detail.datetimeStart);
+            return (
+              <>
+                <h1 className="font-serif text-[28px] leading-tight text-ink-900">
+                  {p.month}月{p.day}日
+                  <span className={weekdayColorClass(p.weekdayIndex)}>（{p.weekday}）</span>
+                </h1>
+                <p className="mt-1 font-sans text-[17px] tabular-nums text-ink-700">{p.time}〜</p>
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center rounded-sm border border-line-200 bg-bg-sunken px-2 py-0.5 font-sans text-[12px] text-ink-700">
+                    {areaLabel(detail.area)}
+                  </span>
+                  <span className="font-sans text-[13px] text-ink-500">3 対 3（男女各3名）</span>
+                </div>
+              </>
+            );
+          })()}
           <div className="mt-2.5">
             <SlotConditionChips conditions={detail.conditions} />
           </div>

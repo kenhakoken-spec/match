@@ -1,11 +1,12 @@
-// src/components/public/PublicSlotCard.tsx — 公開(未ログイン)枠カード (S8 要望1).
+// src/components/public/PublicSlotCard.tsx — 公開(未ログイン)枠カード (S8 要望1 / s11 §2).
 // 認証版 SlotCard(eligibility ヒント前提) は流用せず、公開DTO専用の薄いカードを置く。
-// 表示は枠の事実情報のみ: エリア・日時 / 充足ドット+残数 / 参加条件チップ / 料金中立併記。
+// 表示(s11 日付主役): 日付ブロック(主役)+エリアチップ(従) / 充足ドット+残数 / 参加条件チップ / 料金中立併記。
 // 個人特定情報は構造上 PublicSlotDTO に無い(氏名/写真/lineUserId は出さない)。
 // design-system §4.2(カード) / §4.7A(条件チップ) / §8(煽らない) 準拠。
 import Link from "next/link";
 import { FillDots } from "@/components/slots/FillDots";
 import { SlotConditionChips } from "@/components/slots/SlotConditionChips";
+import { AreaChip, SlotDateBlock } from "@/components/slots/SlotDateBlock";
 import { formatDateShort, formatTime } from "@/app/_lib/datetime";
 import { areaLabel, remainingText, yen } from "@/app/_lib/slots-ui";
 import type { PublicSlotDTO } from "@/lib/types";
@@ -21,16 +22,13 @@ export function PublicSlotCard({ slot }: { slot: PublicSlotDTO }) {
       aria-label={`${areaLabel(slot.area)} ${formatDateShort(slot.datetimeStart)} ${formatTime(slot.datetimeStart)} の会の詳細`}
       className="block rounded-md border border-line-200 bg-bg-surface p-4 transition-colors hover:bg-bg-sunken/60"
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-serif text-[17px] leading-tight text-ink-900">
-          {areaLabel(slot.area)}
-        </span>
-        <span className="shrink-0 font-sans text-[13px] tabular-nums text-ink-500">
-          {formatDateShort(slot.datetimeStart)} {formatTime(slot.datetimeStart)}〜
-        </span>
+      {/* 上段: 日付ブロック(主役) + エリアチップ(従)。情報階層①いつ②どこ(s11 §2.3)。 */}
+      <div className="flex items-start justify-between gap-3">
+        <SlotDateBlock iso={slot.datetimeStart} />
+        <AreaChip label={areaLabel(slot.area)} />
       </div>
 
-      <div className="mt-2.5">
+      <div className="mt-3">
         <FillDots filled={slot.filled} capacityPerGender={slot.capacityPerGender} />
       </div>
       <p

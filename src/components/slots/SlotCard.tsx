@@ -1,5 +1,6 @@
-// src/components/slots/SlotCard.tsx — 枠カード (U-04, design-system §4.2 / s9 §5).
-// Layout: エリア・日時(上) → 充足ドット+残数(中) → 条件チップ+料金(下).
+// src/components/slots/SlotCard.tsx — 枠カード (U-04, design-system §4.2 / s9 §5 / s11 §2).
+// Layout(s11 日付主役): 日付ブロック(主役)+エリアチップ(従)(上) → 充足ドット+残数(中)
+//   → 条件チップ+料金(下). 情報階層①いつ②どこ③充足④条件/料金。
 // 条件不足(client hint) は淡色 + 破線 + 事実理由(muted)。danger(赤)にはしない(§8).
 // 料金は viewer の性別で出し分け(s9 §5): 女性には料金行を出さない(異性料金を見せない)。
 //   男性 = 「男性 ¥2,000」/ 性別不明(viewerGender 無し) = 中立併記「男性 ¥2,000 ・ 女性 無料」。
@@ -7,6 +8,7 @@
 import Link from "next/link";
 import { FillDots } from "./FillDots";
 import { SlotConditionChips } from "./SlotConditionChips";
+import { AreaChip, SlotDateBlock } from "./SlotDateBlock";
 import { formatDateShort, formatTime } from "@/app/_lib/datetime";
 import { areaLabel, remainingText, yen, type ListHint } from "@/app/_lib/slots-ui";
 import type { SlotDTO } from "@/app/_lib/api-s2";
@@ -37,21 +39,13 @@ export function SlotCard({
           : "border-line-200 bg-bg-surface hover:bg-bg-sunken/60",
       ].join(" ")}
     >
-      <div data-testid="slot-card" className="flex items-baseline justify-between gap-2">
-        <span
-          className={[
-            "font-serif text-[17px] leading-tight",
-            ineligible ? "text-ink-700" : "text-ink-900",
-          ].join(" ")}
-        >
-          {areaLabel(slot.area)}
-        </span>
-        <span className="shrink-0 font-sans text-[13px] tabular-nums text-ink-500">
-          {formatDateShort(slot.datetimeStart)} {formatTime(slot.datetimeStart)}〜
-        </span>
+      {/* 上段: 日付ブロック(主役) + エリアチップ(従)。情報階層①いつ②どこ(s11 §2.3)。 */}
+      <div data-testid="slot-card" className="flex items-start justify-between gap-3">
+        <SlotDateBlock iso={slot.datetimeStart} muted={ineligible} />
+        <AreaChip label={areaLabel(slot.area)} />
       </div>
 
-      <div className="mt-2.5">
+      <div className="mt-3">
         <FillDots filled={slot.filled} capacityPerGender={slot.capacityPerGender} />
       </div>
       <p

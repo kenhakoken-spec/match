@@ -11,6 +11,8 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/States";
 import { fetchPublicSlots } from "@/app/_lib/api-public";
 import { startMillis } from "@/app/_lib/datetime";
 import { PublicSlotCard } from "@/components/public/PublicSlotCard";
+import { SlotCalendar } from "@/components/slots/SlotCalendar";
+import { ViewToggle, type SlotView } from "@/components/slots/ViewToggle";
 import { RegisterCta } from "@/components/public/RegisterCta";
 import type { PublicSlotDTO } from "@/lib/types";
 
@@ -18,6 +20,7 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [slots, setSlots] = useState<PublicSlotDTO[]>([]);
+  const [view, setView] = useState<SlotView>("list"); // 既定リスト(s11 §3.2)
 
   async function load() {
     setLoading(true);
@@ -63,13 +66,32 @@ export default function ExplorePage() {
               data-testid="empty"
             />
           ) : (
-            <ul className="space-y-3" data-testid="public-slot-list">
-              {sorted.map((slot) => (
-                <li key={slot.id}>
-                  <PublicSlotCard slot={slot} />
-                </li>
-              ))}
-            </ul>
+            <>
+              {/* リスト／カレンダー トグル(#3 / s11 §3.2)。取得ゼロ時は出さない。 */}
+              <div className="mb-4 flex justify-center">
+                <ViewToggle value={view} onChange={setView} />
+              </div>
+
+              {view === "list" ? (
+                <ul className="space-y-3" data-testid="public-slot-list">
+                  {sorted.map((slot) => (
+                    <li key={slot.id}>
+                      <PublicSlotCard slot={slot} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div data-testid="slot-calendar">
+                  <SlotCalendar
+                    slots={sorted}
+                    isoOf={(s) => s.datetimeStart}
+                    keyOf={(s) => s.id}
+                    renderCard={(slot) => <PublicSlotCard slot={slot} />}
+                    emptyMonthBody="翌月以降に順次公開します。"
+                  />
+                </div>
+              )}
+            </>
           )}
         </main>
       )}

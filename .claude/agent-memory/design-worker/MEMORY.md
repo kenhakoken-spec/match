@@ -4,3 +4,4 @@
 - [Design direction](feedback_design-direction.md) — 「AIっぽさ排除＝温かく編集的」。紫グラデ/絵文字過多/量産SaaS/バッジ金ピカ/決済販促トーンはFAIL。トークンは docs/design/design-system.md。
 - [S9 brand HAKO-NIWA](project_s9-brand-hakoniwa.md) — rendez→HAKO-NIWA(箱庭)/タグライン「みんなが出会える場所」/画像ゼロ対策SVG/オンボ性別先頭4ステップ/料金は異性側非表示/撮影後導線。仕様= docs/design/s9-hakoniwa-brand-and-lp.md。
 - [S10 redesign](project_s10-redesign.md) — LP/オンボをCSSアトモスフィア(テラコッタ+深緑グラデ・紫禁止)+ペルソナ/マーケ起点で全面リデザイン。garden-plot線画撤去・固定CTA被り解消・leaf新規・ログインUX。仕様= docs/design/s10-redesign.md。S9仕様は維持。
+- [S11 polish](project_s11-polish.md) — 会カードを日付主役に反転(数字＆明朝＋曜日色・エリアはチップ)/リスト⇔カレンダートグル(月のみ)/LPに主役級SVG絵HeroScene(空・庭・灯・6人影=3対3)。新色なし。仕様= docs/design/s11-polish-design.md。

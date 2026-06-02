@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { lineLogin } from "./_lib/liff-login";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { BrandLockup } from "@/components/brand/BrandLockup";
+import { HeroScene } from "@/components/brand/HeroScene";
 import { ConcreteBlock, FlowList, ValueList } from "@/components/brand/LpSections";
 
 // エラーコード→ユーザー向け日本語(s10 §8.2)。原因＋「次の一手」を必ず添える。
@@ -96,6 +97,12 @@ export function LoginScreen() {
         <div className="hero-atmosphere" aria-hidden />
 
         <div className="relative pb-2 pt-2">
+          {/* 主役級ビジュアル(#8 / s11 §4.2)。ロックアップとタグラインの間=ファーストビュー最初の絵。
+              枠線/影なし(空グラデが地に溶ける)。アトモスフィアと二重で温度を出す。aria-label済。 */}
+          <div className="mb-8 overflow-hidden rounded-lg">
+            <HeroScene className="block h-auto w-full" />
+          </div>
+
           {/* タグライン(小さなキャッチ・字間広め)。主見出しを引き立てる(s10 §2.4)。 */}
           <p className="font-sans text-[13px] font-bold tracking-[0.08em] text-accent-600">
             みんなが出会える場所

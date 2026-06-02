@@ -24,7 +24,7 @@ import {
   conditionLines,
   reasonSpec,
 } from "@/app/_lib/slots-ui";
-import { formatDateShort, formatTime } from "@/app/_lib/datetime";
+import { jstDateParts, weekdayColorClass } from "@/app/_lib/datetime";
 import type { MeResponse } from "@/app/_lib/types";
 
 // 初回無料の対象か。S2 では決済実装前のため全員 true(初回扱い)。料金予告は次回¥2,000を誠実に提示。
@@ -98,13 +98,26 @@ export default function SlotDetailPage({ params }: { params: { id: string } }) {
       <AppHeader title="枠の詳細" backHref="/browse" />
 
       <main className="flex-1 px-5 pb-10 pt-4">
-        {/* 見出し: エリア・日時・人数・条件チップ */}
+        {/* 見出し(s11 §2.4 日付主役): 「6月13日(金)」明朝＋曜日色＋時刻、エリアはチップに格下げ。 */}
         <header>
-          <h1 className="font-serif text-[22px] text-ink-900">{areaLabel(slot.area)}エリア</h1>
-          <p className="mt-1 font-sans text-[15px] tabular-nums text-ink-700">
-            {formatDateShort(slot.datetimeStart)} {formatTime(slot.datetimeStart)}〜
-          </p>
-          <p className="mt-0.5 font-sans text-[13px] text-ink-500">3 対 3（男女各3名）</p>
+          {(() => {
+            const p = jstDateParts(slot.datetimeStart);
+            return (
+              <>
+                <h1 className="font-serif text-[28px] leading-tight text-ink-900">
+                  {p.month}月{p.day}日
+                  <span className={weekdayColorClass(p.weekdayIndex)}>（{p.weekday}）</span>
+                </h1>
+                <p className="mt-1 font-sans text-[17px] tabular-nums text-ink-700">{p.time}〜</p>
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center rounded-sm border border-line-200 bg-bg-sunken px-2 py-0.5 font-sans text-[12px] text-ink-700">
+                    {areaLabel(slot.area)}
+                  </span>
+                  <span className="font-sans text-[13px] text-ink-500">3 対 3（男女各3名）</span>
+                </div>
+              </>
+            );
+          })()}
           <div className="mt-2.5">
             <SlotConditionChips conditions={slot.conditions} />
           </div>
