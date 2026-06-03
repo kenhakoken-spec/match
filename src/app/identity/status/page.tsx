@@ -22,10 +22,14 @@ const DEFAULT_REJECT_REASONS = [
   "顔写真が確認できませんでした",
 ];
 
+// S11 #1: 「未提出」を pending(確認中) と区別する。identity レコードが無い(API null)＝
+// まだ提出していない状態。型 IdentityStatus は変えず、画面ローカルで notSubmitted を足す。
+type ViewStatus = IdentityStatus | "notSubmitted";
+
 export default function IdentityStatusPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState<IdentityStatus>("pending");
+  const [status, setStatus] = useState<ViewStatus>("notSubmitted");
   const [rejectReason, setRejectReason] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,7 +49,8 @@ export default function IdentityStatusPage() {
     }
     getIdentity().then((res) => {
       if (!active) return;
-      setStatus(res?.status ?? "pending");
+      // res が null = identity レコード無し = 未提出。pending(確認中)と区別する。
+      setStatus(res?.status ?? "notSubmitted");
       setRejectReason(res?.rejectReason ?? null);
       setLoading(false);
     });
@@ -68,6 +73,30 @@ export default function IdentityStatusPage() {
       <AppHeader title="本人確認" backHref="/onboarding" />
       <PageBody className="flex flex-1 flex-col">
         <div className="flex flex-1 flex-col items-center justify-center text-center">
+          {status === "notSubmitted" ? (
+            <StateBlock
+              glyph="◇"
+              pill={
+                <StatusPill tone="muted" glyph="◇">
+                  未提出
+                </StatusPill>
+              }
+              title="本人確認がまだです"
+              body={
+                <>
+                  会に応募するには、本人確認（年齢確認）が必要です。
+                  <br />
+                  顔写真付きの身分証で、かんたんに済みます。
+                </>
+              }
+              note={
+                <>
+                  確認が済むまで、開催予定の会はご覧いただけます。
+                </>
+              }
+            />
+          ) : null}
+
           {status === "pending" ? (
             <StateBlock
               glyph="◷"
@@ -151,6 +180,16 @@ export default function IdentityStatusPage() {
         </div>
 
         <div className="space-y-2 pt-6">
+          {status === "notSubmitted" ? (
+            <>
+              <Button onClick={() => router.push("/identity")}>
+                本人確認を提出する
+              </Button>
+              <Button variant="secondary" onClick={() => router.push("/explore")}>
+                まず会を見てみる
+              </Button>
+            </>
+          ) : null}
           {status === "approved" ? (
             <Button onClick={() => router.push("/profile/new")}>
               プロフィール登録へ

@@ -130,8 +130,10 @@ export async function getIdentity(): Promise<{
       rejectReason: string | null;
     } | null;
   } catch {
-    // FALLBACK: pending so reviewers can see the審査中 state by default.
-    return { status: "pending", rejectReason: null };
+    // FALLBACK: 未提出(null)を返す。S11 #1: 以前は pending を返していたため、未提出でも
+    // 「確認中」と誤表示されていた。バックエンド未接続/未認証時は「未提出」扱いが正しい
+    // （確認中の見え方は /identity/status?demo=pending で確認できる）。
+    return null;
   }
 }
 

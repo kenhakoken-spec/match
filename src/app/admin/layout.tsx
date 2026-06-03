@@ -4,6 +4,10 @@
 // admin 配下は自前で横いっぱいに広げる)。トーンは本体と同じ温かいニュートラル。
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { optionalUser } from "@/lib/auth/guard";
+
+export const dynamic = "force-dynamic";
 
 const NAV = [
   { href: "/admin/slots", label: "枠管理", active: true },
@@ -15,14 +19,21 @@ const NAV = [
   { href: "/admin/slots", label: "ユーザー管理" },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+// S11(qa中): admin 配下を **サーバ側で認可ガード**。未ログイン/非adminは
+// 管理UIを一切描画せずトップへリダイレクト（従来はサブページがクライアント描画で
+// 管理画面の構造が露出していた。書き込みAPIは401で保護済みだがUIごと隠す）。
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const user = await optionalUser();
+  if (!user || user.role !== "admin") {
+    redirect("/");
+  }
   return (
     <div className="min-h-[100dvh] w-full bg-bg-base lg:grid lg:grid-cols-[220px_1fr]">
       {/* 左ナビ */}
       <aside className="border-b border-line-200 bg-bg-surface lg:min-h-[100dvh] lg:border-b-0 lg:border-r">
         <div className="px-5 py-4">
           <p className="font-serif text-[18px] text-ink-900">運営 admin</p>
-          <p className="font-sans text-[12px] text-ink-500">matching-app</p>
+          <p className="font-sans text-[12px] text-ink-500">HAKO-NIWA（箱庭）</p>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:overflow-visible">
           {NAV.map((item, i) => (
