@@ -63,6 +63,25 @@ export const DEFAULT_FLEX_CAPACITY: FlexCapacity = {
   maxPerGender: 4,
 };
 
+/**
+ * Slot の柔軟定員フィールドから FlexCapacity を取り出す純関数。
+ * 値が欠落(null/undefined)していれば DEFAULT_FLEX_CAPACITY のフィールドで補う。
+ *
+ * applyAtomic(memory/prisma 両経路)と eligibility が **同一の cap 解決ロジック** を
+ * 使うための単一の出所。これで in-memory とDBで成立条件がズレない(SEC-001 再発防止)。
+ */
+export function flexCapacityFromSlot(slot: {
+  capacityTotal?: number | null;
+  minPerGender?: number | null;
+  maxPerGender?: number | null;
+}): FlexCapacity {
+  return {
+    capacityTotal: slot.capacityTotal ?? DEFAULT_FLEX_CAPACITY.capacityTotal,
+    minPerGender: slot.minPerGender ?? DEFAULT_FLEX_CAPACITY.minPerGender,
+    maxPerGender: slot.maxPerGender ?? DEFAULT_FLEX_CAPACITY.maxPerGender,
+  };
+}
+
 /** 有効応募(applied/accepted)を性別ごとに数える(canceled は除外)。 */
 function countActive(
   applications: { gender: Gender; status: "applied" | "accepted" | "canceled" }[]
@@ -99,21 +118,39 @@ export function canAcceptGenderFlex(
 }
 
 /**
- * 柔軟定員での **成立判定**。
- *   合計が capacityTotal に達し、かつ 各性別が [minPerGender, maxPerGender] に収まる。
+ * 柔軟定員での **成立判定（カウント版）**。
+ *   有効応募の男女数 {male, female} を直接受け取り、合計が capacityTotal に達し、
+ *   かつ 各性別が [minPerGender, maxPerGender] に収まるかを判定する。
  *   例(既定 6/2/4): 3:3=○ / 2:4=○ / 4:2=○ / 5:1=× / 6:0=× / 1:5=×。
- *   applied/accepted のみ数える(canceled 除外)。不正な定員値は false。
+ *   不正な定員値(非有限/min>max 等)は false。
+ *
+ * applyAtomic(repo) は「応募追加後の男女カウント(after)」しか持たないため、
+ * 配列版 isSlotFullFlex とは別に **カウントで成立判定できる純関数** が要る。
+ * isSlotFullFlex はこの関数へ委譲し、in-memory/DB/配列の全経路が同一基準で成立する。
+ */
+export function isFullByCountsFlex(
+  counts: { male: number; female: number },
+  cap: FlexCapacity = DEFAULT_FLEX_CAPACITY
+): boolean {
+  if (!isValidFlexCapacity(cap)) return false;
+  const { male, female } = counts;
+  if (!Number.isFinite(male) || !Number.isFinite(female)) return false;
+  if (male + female !== cap.capacityTotal) return false;
+  if (male < cap.minPerGender || male > cap.maxPerGender) return false;
+  if (female < cap.minPerGender || female > cap.maxPerGender) return false;
+  return true;
+}
+
+/**
+ * 柔軟定員での **成立判定（配列版）**。
+ *   applied/accepted のみ数え(canceled 除外)、isFullByCountsFlex に委譲する。
+ *   例(既定 6/2/4): 3:3=○ / 2:4=○ / 4:2=○ / 5:1=× / 6:0=× / 1:5=×。不正な定員値は false。
  */
 export function isSlotFullFlex(
   applications: { gender: Gender; status: "applied" | "accepted" | "canceled" }[],
   cap: FlexCapacity = DEFAULT_FLEX_CAPACITY
 ): boolean {
-  if (!isValidFlexCapacity(cap)) return false;
-  const { male, female } = countActive(applications);
-  if (male + female !== cap.capacityTotal) return false;
-  if (male < cap.minPerGender || male > cap.maxPerGender) return false;
-  if (female < cap.minPerGender || female > cap.maxPerGender) return false;
-  return true;
+  return isFullByCountsFlex(countActive(applications), cap);
 }
 
 /** 柔軟定員の整合チェック(防御)。min<=max、min*2<=total<=max*2、すべて有限の正数。 */

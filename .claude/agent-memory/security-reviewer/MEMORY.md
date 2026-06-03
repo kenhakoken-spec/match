@@ -4,6 +4,7 @@
 - [Recurring scaffold vulns](feedback_known-scaffold-vulns.md) — verified-good controls + open issues from S1/S2 review
 - [S3-S6 review](project_s3-s6-review.md) — 2026-05-30: CRIT0/HIGH0/MED2/LOW3; venueUrl IS safe (anchored http(s) regex)
 - [S8 review](project_s8-review.md) — 2026-05-31: Haiku auth/no-show/public-preview/admin-venue/restricted-slots all VERIFIED-GOOD, CRIT0/HIGH0; includes correction of two earlier-drafted false findings
+- [S12 review](project_s12-review.md) — 2026-06-04: CRIT0/HIGH0/MED1/LOW3; MatchMemberDTO PII boundary OK; flex capacity NOT wired into applyAtomic (safe-side, SEC-001)
 - [Bash sandbox notes](env_bash_sandbox.md) — sandboxed Read/Bash return empty in this WSL env; use nl -ba via dangerouslyDisableSandbox
 
 Notes:

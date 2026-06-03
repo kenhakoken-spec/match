@@ -48,6 +48,11 @@ import type {
   IdentityAiVerdict,
   VenueCandidateStatus,
 } from "@/lib/types";
+import {
+  canAcceptGenderFlex,
+  isFullByCountsFlex,
+  flexCapacityFromSlot,
+} from "@/lib/domain/match";
 
 interface Store {
   users: Map<string, UserEntity>;
@@ -444,12 +449,16 @@ class MemoryApplicationsRepo implements ApplicationsRepo {
   /**
    * **原子的応募作成**。in-memory は単スレッド: read→validate→write の間に
    * await を挟まないため、この同期区間は不可分(他の応募と割り込まない)。
-   * これにより男4/女4 等の過充足と二重応募を防止する(matching-logic.md §4)。
+   * これにより同性別5名以上の過充足・合計超過と二重応募を防止する(matching-logic.md §4)。
    * Prisma 実装側では SELECT ... FOR UPDATE + UNIQUE(slotId,userId) で同等を担保する。
+   *
+   * S12 #10: 定員/成立は **slot の柔軟定員(合計6・各性別2〜4)** で判定する。
+   * 第2引数 `_capacityPerGender` は後方互換のため残すが判定には使わない
+   * (cap は slot から flexCapacityFromSlot で解決し、memory/prisma で同一基準にする)。
    */
   async applyAtomic(
     input: CreateApplicationInput,
-    capacityPerGender: number
+    _capacityPerGender: number
   ): Promise<ApplyAtomicResult> {
     const s = store();
 
@@ -478,10 +487,12 @@ class MemoryApplicationsRepo implements ApplicationsRepo {
         counts: countActiveByGenderSync(s, input.slotId),
       };
     }
-    // 3. 定員(過充足防止)。自分の性別が cap 以上なら不可。
+    // 3. 定員(過充足防止)。S12 #10: 柔軟定員(合計6・各性別2〜4)。
+    //    判定は slot の flex cap を出所とし、引数 capacityPerGender(後方互換)には依存しない。
+    //    canAcceptGenderFlex が false = その性別を1名足すと max 超過 or 合計超過 → gender_full。
     const counts = countActiveByGenderSync(s, input.slotId);
-    const myCount = input.gender === "male" ? counts.male : counts.female;
-    if (myCount >= capacityPerGender) {
+    const cap = flexCapacityFromSlot(slot);
+    if (!canAcceptGenderFlex(counts, input.gender, cap)) {
       return { application: null, error: "gender_full", matched: false, counts };
     }
 
@@ -509,9 +520,10 @@ class MemoryApplicationsRepo implements ApplicationsRepo {
     }
     s.applications.set(app.id, app);
 
-    // 5. 成立判定(男>=cap && 女>=cap)。成立なら枠を filled に。
+    // 5. 成立判定(S12 #10 柔軟定員)。合計==capacityTotal かつ 各性別∈[min,max]。
+    //    3:3 / 2:4 / 4:2=成立、5:1 / 6:0=不成立。after カウントから純関数で判定。
     const after = countActiveByGenderSync(s, input.slotId);
-    const matched = after.male >= capacityPerGender && after.female >= capacityPerGender;
+    const matched = isFullByCountsFlex(after, cap);
     if (matched) {
       slot.status = "filled";
       slot.updatedAt = now;

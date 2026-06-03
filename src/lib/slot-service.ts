@@ -68,6 +68,10 @@ export async function buildSlotContext(
       status: slot.status,
       filled: counts,
       capacityPerGender: slot.capacityPerGender,
+      // S12 #10: 柔軟定員(合計6・各性別2〜4)を gender_full 判定へ渡す。
+      capacityTotal: slot.capacityTotal,
+      minPerGender: slot.minPerGender,
+      maxPerGender: slot.maxPerGender,
     },
     alreadyApplied,
   });

@@ -14,6 +14,11 @@
 // =============================================================================
 
 import type { Gender } from "@/lib/types";
+import {
+  canAcceptGenderFlex,
+  type FlexCapacity,
+  DEFAULT_FLEX_CAPACITY,
+} from "@/lib/domain/match";
 
 /** eligibility が返す理由コード(契約§1 の reasons 文字列に一致)。 */
 export type EligibilityReason =
@@ -51,8 +56,14 @@ export interface EligibilitySlot {
   status: "open" | "filled" | "confirmed" | "done" | "canceled";
   /** 現在の性別ごとの確定/応募数。 */
   filled: { male: number; female: number };
-  /** 性別ごとの定員(MVP=3)。 */
+  /** 後方互換: 性別ごとの上限(既定3)。柔軟定員未指定時のフォールバック計算には使わない。 */
   capacityPerGender: number;
+  /** S12 #10: 会の合計定員(既定6)。未指定なら DEFAULT_FLEX_CAPACITY を使う。 */
+  capacityTotal?: number;
+  /** S12 #10: 各性別の最低人数(偏り防止。既定2)。応募ゲートには使わない(成立条件)。 */
+  minPerGender?: number;
+  /** S12 #10: 各性別の上限人数(過充足防止。既定4)。 */
+  maxPerGender?: number;
 }
 
 export interface EligibilityInput {
@@ -68,19 +79,26 @@ export interface EligibilityResult {
 }
 
 /**
- * その性別の定員が埋まっているか(過充足防止の純関数)。
- * filled[gender] >= capacity のとき true(=これ以上応募できない)。
- * 防御的に: capacity <= 0 や負の filled は満員扱い(安全側)。
+ * その性別の枠がもう埋まっていて、あと1名 **受け入れられない**か(過充足防止の純関数)。
+ *
+ * S12 #10: 柔軟定員(合計6・各性別2〜4)に対応。応募の可否ヒントは応募ゲート
+ * canAcceptGenderFlex の **否定** と完全に同義にする:
+ *   - その性別を受け入れると maxPerGender を超える、または
+ *   - 受け入れると合計が capacityTotal を超える
+ * のとき true(=これ以上その性別は応募できない)。
+ * minPerGender は成立条件であって応募可否には使わない(最初の1人を弾かないため)。
+ * 防御的に: 不正な定員値や負/非有限の filled は満員扱い(安全側=true)。
  */
 export function genderFull(
   filled: { male: number; female: number },
-  capacityPerGender: number,
+  cap: FlexCapacity,
   gender: Gender
 ): boolean {
-  if (!Number.isFinite(capacityPerGender) || capacityPerGender <= 0) return true;
-  const count = gender === "male" ? filled.male : filled.female;
-  if (!Number.isFinite(count)) return true;
-  return count >= capacityPerGender;
+  const m = gender === "male" ? filled.male : filled.female;
+  const other = gender === "male" ? filled.female : filled.male;
+  if (!Number.isFinite(m) || !Number.isFinite(other)) return true;
+  // canAcceptGenderFlex が false = もう受け入れられない = gender_full。
+  return !canAcceptGenderFlex(filled, gender, cap);
 }
 
 /**
@@ -143,10 +161,16 @@ export function evaluateEligibility(input: EligibilityInput): EligibilityResult 
     reasons.push("badge_required");
   }
 
-  // 7. 定員(プロフィール完成 = gender 確定時のみ判定可)
+  // 7. 定員(プロフィール完成 = gender 確定時のみ判定可)。
+  //    S12 #10: 柔軟定員(合計6・各性別2〜4)で判定する。slot にflex値が無ければ既定を使う。
   if (profileComplete) {
     const gender = actor.gender as Gender;
-    if (genderFull(slot.filled, slot.capacityPerGender, gender)) {
+    const cap: FlexCapacity = {
+      capacityTotal: slot.capacityTotal ?? DEFAULT_FLEX_CAPACITY.capacityTotal,
+      minPerGender: slot.minPerGender ?? DEFAULT_FLEX_CAPACITY.minPerGender,
+      maxPerGender: slot.maxPerGender ?? DEFAULT_FLEX_CAPACITY.maxPerGender,
+    };
+    if (genderFull(slot.filled, cap, gender)) {
       reasons.push("gender_full");
     }
   }

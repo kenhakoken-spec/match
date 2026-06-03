@@ -13,6 +13,7 @@ import {
   isSlotFull,
   buildVenueMessage,
   isSlotFullFlex,
+  isFullByCountsFlex,
   canAcceptGenderFlex,
   isValidFlexCapacity,
   DEFAULT_FLEX_CAPACITY,
@@ -191,6 +192,51 @@ describe("isSlotFullFlex — 合計6で柔軟成立", () => {
     expect(
       isSlotFullFlex(apps(3, 3), { capacityTotal: 6, minPerGender: 4, maxPerGender: 2 })
     ).toBe(false);
+  });
+});
+
+// isFullByCountsFlex はカウント版の成立判定。applyAtomic(repo) の after カウントから
+// 成立を判定する核であり、配列版 isSlotFullFlex と完全に同一基準でなければならない。
+describe("isFullByCountsFlex — カウントで柔軟成立（applyAtomic の核）", () => {
+  it("3:3 → 成立 → true", () => {
+    expect(isFullByCountsFlex({ male: 3, female: 3 })).toBe(true);
+  });
+  it("2:4 → 成立 → true（これが S12 前は壊れていた核）", () => {
+    expect(isFullByCountsFlex({ male: 2, female: 4 })).toBe(true);
+  });
+  it("4:2 → 成立 → true", () => {
+    expect(isFullByCountsFlex({ male: 4, female: 2 })).toBe(true);
+  });
+  it("5:1 → 偏りすぎ(min2未満) → false", () => {
+    expect(isFullByCountsFlex({ male: 5, female: 1 })).toBe(false);
+  });
+  it("1:5 → 偏りすぎ(min2未満) → false", () => {
+    expect(isFullByCountsFlex({ male: 1, female: 5 })).toBe(false);
+  });
+  it("6:0 → 片方ゼロ → false", () => {
+    expect(isFullByCountsFlex({ male: 6, female: 0 })).toBe(false);
+  });
+  it("0:6 → 片方ゼロ → false", () => {
+    expect(isFullByCountsFlex({ male: 0, female: 6 })).toBe(false);
+  });
+  it("合計5(3:2) → 定員未満 → false", () => {
+    expect(isFullByCountsFlex({ male: 3, female: 2 })).toBe(false);
+  });
+  it("合計7(4:3) → 定員超過 → false", () => {
+    expect(isFullByCountsFlex({ male: 4, female: 3 })).toBe(false);
+  });
+  it("非有限値 → false（防御）", () => {
+    expect(isFullByCountsFlex({ male: Number.NaN, female: 3 })).toBe(false);
+  });
+  it("不正な定員(min>max) → false", () => {
+    expect(
+      isFullByCountsFlex({ male: 3, female: 3 }, { capacityTotal: 6, minPerGender: 4, maxPerGender: 2 })
+    ).toBe(false);
+  });
+  it("配列版 isSlotFullFlex と同一結果（2:4 / 5:1 / 4:2）", () => {
+    expect(isFullByCountsFlex({ male: 2, female: 4 })).toBe(isSlotFullFlex(apps(2, 4)));
+    expect(isFullByCountsFlex({ male: 5, female: 1 })).toBe(isSlotFullFlex(apps(5, 1)));
+    expect(isFullByCountsFlex({ male: 4, female: 2 })).toBe(isSlotFullFlex(apps(4, 2)));
   });
 });
 

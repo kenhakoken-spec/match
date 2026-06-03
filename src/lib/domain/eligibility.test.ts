@@ -46,28 +46,35 @@ function twentiesSlot(over: Partial<EligibilitySlot> = {}): EligibilitySlot {
 }
 
 // =============================================================================
-// genderFull
+// genderFull — S12 #10 で柔軟定員(合計6・各性別2〜4)基準に変更。
+//   応募可否ヒント = 応募ゲート canAcceptGenderFlex の否定。
+//   その性別が max(4) 到達、または 合計 6 到達のとき満員(=これ以上応募不可)。
+//   注: 3人目では満員にならない（厳密3:3時代との違い。4人目まで同性別を受け入れる）。
 // =============================================================================
-describe("genderFull", () => {
-  it("空き(0/3) → false", () => {
-    expect(genderFull({ male: 0, female: 0 }, 3, "male")).toBe(false);
+const FLEX = { capacityTotal: 6, minPerGender: 2, maxPerGender: 4 };
+
+describe("genderFull (柔軟定員 6/2/4)", () => {
+  it("空き(0:0) → false", () => {
+    expect(genderFull({ male: 0, female: 0 }, FLEX, "male")).toBe(false);
   });
-  it("2/3 → まだ空き → false", () => {
-    expect(genderFull({ male: 2, female: 3 }, 3, "male")).toBe(false);
+  it("男3 はまだ受け入れ可(max4未満・合計未満) → false（旧3:3なら満員だった点が変わった）", () => {
+    expect(genderFull({ male: 3, female: 0 }, FLEX, "male")).toBe(false);
   });
-  it("境界: ちょうど定員(3/3) → 満員 → true", () => {
-    expect(genderFull({ male: 3, female: 0 }, 3, "male")).toBe(true);
+  it("境界: 男4(max到達) → これ以上 male 不可 → true", () => {
+    expect(genderFull({ male: 4, female: 0 }, FLEX, "male")).toBe(true);
   });
-  it("過充足(4/3) → true", () => {
-    expect(genderFull({ male: 4, female: 0 }, 3, "male")).toBe(true);
+  it("合計が満杯(3:3=6) → どの性別も不可 → true", () => {
+    expect(genderFull({ male: 3, female: 3 }, FLEX, "male")).toBe(true);
+    expect(genderFull({ male: 3, female: 3 }, FLEX, "female")).toBe(true);
   });
-  it("性別ごとに独立: male満員でも female は空きを見る", () => {
-    expect(genderFull({ male: 3, female: 1 }, 3, "female")).toBe(false);
-    expect(genderFull({ male: 3, female: 1 }, 3, "male")).toBe(true);
+  it("男4女1(合計5) → male は max到達で不可、female は 4:2=合計6 で可", () => {
+    expect(genderFull({ male: 4, female: 1 }, FLEX, "male")).toBe(true);
+    expect(genderFull({ male: 4, female: 1 }, FLEX, "female")).toBe(false);
   });
-  it("異常: capacity<=0 は満員扱い(安全側)", () => {
-    expect(genderFull({ male: 0, female: 0 }, 0, "male")).toBe(true);
-    expect(genderFull({ male: 0, female: 0 }, -1, "male")).toBe(true);
+  it("異常: 不正な定員(min>max) は満員扱い(安全側)", () => {
+    expect(
+      genderFull({ male: 0, female: 0 }, { capacityTotal: 6, minPerGender: 4, maxPerGender: 2 }, "male")
+    ).toBe(true);
   });
 });
 
@@ -212,19 +219,36 @@ describe("evaluateEligibility — badge_required", () => {
   });
 });
 
-describe("evaluateEligibility — gender_full", () => {
-  it("自分の性別(male)が満員 → gender_full", () => {
+describe("evaluateEligibility — gender_full (柔軟定員 6/2/4)", () => {
+  it("自分の性別(male)が上限(4)到達 → gender_full", () => {
+    const r = evaluateEligibility({
+      actor: okActor({ gender: "male" }),
+      slot: openSlot({ filled: { male: 4, female: 0 } }),
+      alreadyApplied: false,
+    });
+    expect(r.reasons).toContain("gender_full");
+  });
+  it("男3(まだ4人目を受け入れ可) → gender_full にならない（旧3:3との違い）", () => {
     const r = evaluateEligibility({
       actor: okActor({ gender: "male" }),
       slot: openSlot({ filled: { male: 3, female: 0 } }),
       alreadyApplied: false,
     });
-    expect(r.reasons).toContain("gender_full");
+    expect(r.reasons).not.toContain("gender_full");
+    expect(r.canApply).toBe(true);
   });
-  it("相手性別(female)が満員でも自分(male)に空きがあれば gender_full にならない", () => {
+  it("合計が満杯(3:3=6) → 自分(male)も gender_full", () => {
     const r = evaluateEligibility({
       actor: okActor({ gender: "male" }),
-      slot: openSlot({ filled: { male: 0, female: 3 } }),
+      slot: openSlot({ filled: { male: 3, female: 3 } }),
+      alreadyApplied: false,
+    });
+    expect(r.reasons).toContain("gender_full");
+  });
+  it("相手性別(female)が上限でも自分(male)に空きがあれば gender_full にならない", () => {
+    const r = evaluateEligibility({
+      actor: okActor({ gender: "male" }),
+      slot: openSlot({ filled: { male: 0, female: 4 } }),
       alreadyApplied: false,
     });
     expect(r.reasons).not.toContain("gender_full");
@@ -305,12 +329,12 @@ describe("evaluateEligibility — 複合理由", () => {
     expect(r.canApply).toBe(false);
   });
 
-  it("approved + 31歳 + バッジ無し + 満員 の20代バッジ限定枠 → 3理由を列挙", () => {
+  it("approved + 31歳 + バッジ無し + 満員(男4=上限) の20代バッジ限定枠 → 3理由を列挙", () => {
     const r = evaluateEligibility({
       actor: okActor({ age: 31, hasBadgePremium: false, gender: "male" }),
       slot: twentiesSlot({
         requiresBadge: true,
-        filled: { male: 3, female: 0 },
+        filled: { male: 4, female: 0 },
       }),
       alreadyApplied: false,
     });

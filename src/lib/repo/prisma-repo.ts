@@ -15,6 +15,11 @@
 // =============================================================================
 
 import { prisma } from "@/lib/prisma";
+import {
+  canAcceptGenderFlex,
+  isFullByCountsFlex,
+  flexCapacityFromSlot,
+} from "@/lib/domain/match";
 import type {
   Repo,
   UsersRepo,
@@ -359,11 +364,16 @@ class PrismaApplicationsRepo implements ApplicationsRepo {
   /**
    * **原子的応募作成**(実DB接続時に検証)。$transaction 内で枠を行ロックし、
    * 状態/二重応募/定員を再判定。UNIQUE(slotId,userId) で二重応募をDB保証する。
-   * 成立(男>=cap && 女>=cap)なら同一TXで Slot を filled に更新する。
+   *
+   * S12 #10: 定員/成立は **slot の柔軟定員(合計6・各性別2〜4)** で判定する
+   * (memory.applyAtomic と **完全に同一の純関数** canAcceptGenderFlex / isFullByCountsFlex
+   *  を使い、in-memory とDB経路で成立条件がズレないようにする = SEC-001 再発防止)。
+   * 成立(合計6 かつ 各性別[min,max])なら同一TXで Slot を filled に更新する。
+   * 第2引数 `_capacityPerGender` は後方互換のため残すが判定には使わない。
    */
   async applyAtomic(
     input: CreateApplicationInput,
-    capacityPerGender: number
+    _capacityPerGender: number
   ): Promise<ApplyAtomicResult> {
     return prisma.$transaction(async (tx) => {
       // 行ロック(Postgres)。Prisma の typed API に FOR UPDATE が無いため raw で確保。
@@ -393,8 +403,9 @@ class PrismaApplicationsRepo implements ApplicationsRepo {
         if (r.gender === "male") counts.male = r._count._all;
         else counts.female = r._count._all;
       }
-      const myCount = input.gender === "male" ? counts.male : counts.female;
-      if (myCount >= capacityPerGender) {
+      // S12 #10: 柔軟定員の応募ゲート。slot の cap を出所にし、引数には依存しない。
+      const cap = flexCapacityFromSlot(slot);
+      if (!canAcceptGenderFlex(counts, input.gender, cap)) {
         return { application: null, error: "gender_full" as const, matched: false, counts };
       }
       const app = (await tx.application.upsert({
@@ -418,7 +429,8 @@ class PrismaApplicationsRepo implements ApplicationsRepo {
         male: counts.male + (input.gender === "male" ? 1 : 0),
         female: counts.female + (input.gender === "female" ? 1 : 0),
       };
-      const matched = after.male >= capacityPerGender && after.female >= capacityPerGender;
+      // S12 #10: 柔軟定員の成立判定(memory.applyAtomic と同一の純関数)。
+      const matched = isFullByCountsFlex(after, cap);
       if (matched) {
         await tx.slot.update({ where: { id: input.slotId }, data: { status: "filled" } });
       }
