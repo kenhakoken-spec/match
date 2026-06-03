@@ -12,7 +12,7 @@ import { ButtonLink } from "@/components/ui/Button";
 import { FillDots } from "@/components/slots/FillDots";
 import { SlotConditionChips } from "@/components/slots/SlotConditionChips";
 import { fetchPublicSlotDetail } from "@/app/_lib/api-public";
-import { areaLabel, yen } from "@/app/_lib/slots-ui";
+import { areaLabel } from "@/app/_lib/slots-ui";
 import { jstDateParts, weekdayColorClass } from "@/app/_lib/datetime";
 import { PublicMemberCard } from "@/components/public/PublicMemberCard";
 import { RegisterCta } from "@/components/public/RegisterCta";
@@ -129,12 +129,15 @@ export default function ExploreDetailPage({ params }: { params: { id: string } }
           </div>
         </section>
 
-        {/* 料金(公開時点では男性料金の事実のみ。女性無料は登録後の詳細で案内) */}
+        {/* S12 #2/#3/#12: 未ログインの公開プレビューでは性別別の金額を出さない。
+            参加費の有無と「飲食代は別」だけを中立に伝え、具体額は登録後に案内する。 */}
         <section className="mt-6">
           <h2 className="font-sans text-[13px] font-bold text-ink-700">参加費</h2>
-          <p className="mt-2 font-sans text-[14px] text-ink-700">
-            男性 <span className="font-semibold tabular-nums">{yen(detail.feeMale)}</span>
-            <span className="ml-2 text-ink-500">（女性は無料です）</span>
+          <p className="mt-2 font-sans text-[14px] leading-relaxed text-ink-700">
+            参加費は登録後にご案内します。
+          </p>
+          <p className="mt-1 font-sans text-[13px] leading-relaxed text-ink-500">
+            会場での飲食代は参加費に含まれません（各自のお会計）。
           </p>
         </section>
 

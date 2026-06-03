@@ -8,7 +8,7 @@ import { FillDots } from "@/components/slots/FillDots";
 import { SlotConditionChips } from "@/components/slots/SlotConditionChips";
 import { AreaChip, SlotDateBlock } from "@/components/slots/SlotDateBlock";
 import { formatDateShort, formatTime } from "@/app/_lib/datetime";
-import { areaLabel, remainingText, yen } from "@/app/_lib/slots-ui";
+import { areaLabel, remainingText } from "@/app/_lib/slots-ui";
 import type { PublicSlotDTO } from "@/lib/types";
 
 export function PublicSlotCard({ slot }: { slot: PublicSlotDTO }) {
@@ -42,10 +42,9 @@ export function PublicSlotCard({ slot }: { slot: PublicSlotDTO }) {
 
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-line-100 pt-3 md:mt-auto">
         <SlotConditionChips conditions={slot.conditions} />
-        {/* 公開は性別不明 → 中立併記(女性無料を追記 / s9 §5.1・§5.3)。 */}
+        {/* S12 #2/#12: 未ログインの一覧では性別別の金額を出さない。詳細・登録後に案内。 */}
         <span className="shrink-0 font-sans text-[12px] text-ink-500">
-          男性 <span className="font-semibold tabular-nums text-ink-700">{yen(slot.feeMale)}</span>
-          <span className="text-ink-500"> ・ 女性 無料</span>
+          参加費は登録後に案内
         </span>
       </div>
     </Link>
