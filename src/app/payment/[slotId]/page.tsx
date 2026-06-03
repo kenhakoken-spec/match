@@ -89,22 +89,12 @@ export default function PaymentPage({
     }
   }
 
-  // --- loading --------------------------------------------------------------
-  if (phase === "loading" || !intent) {
-    return (
-      <>
-        <AppHeader title="お支払い" backHref="/applications" />
-        <PageBody>
-          <LoadingState label="お支払い情報を確認しています…" data-testid="pay-loading" />
-        </PageBody>
-      </>
-    );
-  }
-
-  const { reason, chargeable, amountJpy } = intent.quote;
-
   // --- error ----------------------------------------------------------------
+  // S11 NEW-1: error を loading より前に評価する。401等で intent=null のまま error に
+  // なるケースで、以前は下の `!intent` ガードに吸い込まれ永久ローディングになっていた。
+  // error 画面は intent 非依存にする（chargeable は intent があるときのみ参照）。
   if (phase === "error") {
+    const chargeable = intent?.quote.chargeable ?? false;
     return (
       <>
         <AppHeader title="お支払い" backHref="/applications" />
@@ -169,6 +159,20 @@ export default function PaymentPage({
       </>
     );
   }
+
+  // --- loading（intent 取得待ち）。error/done を上で評価済みなのでここは純粋なロード中。
+  if (phase === "loading" || !intent) {
+    return (
+      <>
+        <AppHeader title="お支払い" backHref="/applications" />
+        <PageBody>
+          <LoadingState label="お支払い情報を確認しています…" data-testid="pay-loading" />
+        </PageBody>
+      </>
+    );
+  }
+
+  const { reason, chargeable, amountJpy } = intent.quote;
 
   // --- ready: NON-chargeable (female_free / male_first_free) ---------------
   // 無料を主役に。初回無料は静かに主役（accent.100 地・祝意の絵文字は最大1・販促禁止 / §4.7C）。

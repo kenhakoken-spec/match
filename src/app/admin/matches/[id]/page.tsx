@@ -12,7 +12,7 @@
 // POST /api/admin/matches/[id]/notify → { match: AdminMatchDetailDTO, notified: number }
 // POST /api/admin/matches/[id]/complete → { slotStatus, attendedIncremented }
 
-import { use, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppHeader } from "@/components/AppHeader";
 import { ErrorState, LoadingState } from "@/components/States";
 import { Button } from "@/components/ui/Button";
@@ -48,8 +48,9 @@ const STATUS_PILL: Record<
   notified: { label: "通知済", tone: "success", glyph: "●" },
 };
 
-export default function AdminMatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+// Next.js 14 では params は同期。use(params) は React error #438 でクラッシュするため同期で受ける。
+export default function AdminMatchDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [match, setMatch] = useState<AdminMatchDetailDTO | null>(null);
