@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // S11(qa NEW-5): maximumScale=1 はピンチズームを禁じ WCAG 1.4.4 に抵触するため撤去。
+  // 弱視ユーザーが拡大できるようにする。
   themeColor: "#FBF7F0",
 };
 
