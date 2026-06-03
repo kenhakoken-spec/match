@@ -75,11 +75,11 @@ export default function BrowsePage() {
       {loading ? (
         <LoadingState data-testid="loading" />
       ) : error ? (
-        <main className="flex-1 px-5 pt-4">
+        <main className="mx-auto w-full max-w-[480px] flex-1 px-5 pt-4 md:max-w-3xl md:px-8 lg:max-w-5xl">
           <ErrorState onRetry={load} />
         </main>
       ) : (
-        <main className="flex-1 px-5 pb-10 pt-4">
+        <main className="mx-auto w-full max-w-[480px] flex-1 px-5 pb-10 pt-4 md:max-w-3xl md:px-8 lg:max-w-5xl">
           {/* 段階別ステータスバナー (U-04 / s9 §6.2c)。責めない・案内のトーン・形状併記。 */}
           <BrowseStatusBanner me={me} />
 
@@ -98,9 +98,15 @@ export default function BrowsePage() {
               </div>
 
               {view === "list" ? (
-                <ul className="space-y-3" data-testid="slot-list">
+                /* base 1列(現行不変)。md+ 2列 / lg 3列のグリッド。行内でカード高さを揃える(s11視覚§4.1)。 */
+                <ul
+                  className="grid grid-cols-1 gap-3 md:auto-rows-fr md:grid-cols-2 lg:grid-cols-3"
+                  data-testid="slot-list"
+                >
                   {sorted.map((slot) => (
-                    <li key={slot.id}>{renderCard(slot)}</li>
+                    <li key={slot.id} className="md:h-full">
+                      {renderCard(slot)}
+                    </li>
                   ))}
                 </ul>
               ) : (

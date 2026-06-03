@@ -70,11 +70,14 @@ const TABS: Tab[] = [
 export function BottomTabs() {
   const pathname = usePathname() ?? "";
   return (
+    // S11(s11視覚§4.3): 帯(border-t/bg)は全幅、3タブのグリッドは 480px 中央に抑える。
+    // PC で広い一覧の下でもタブが両端に間延びしない。base は 480px のままで不変。
     <nav
       aria-label="メインナビゲーション"
-      className="sticky bottom-0 z-10 grid grid-cols-3 border-t border-line-200 bg-bg-surface"
+      className="sticky bottom-0 z-10 border-t border-line-200 bg-bg-surface"
     >
-      {TABS.map((tab) => {
+      <div className="mx-auto grid w-full max-w-[480px] grid-cols-3">
+        {TABS.map((tab) => {
         const active = tab.match.some(
           (p) => pathname === p || pathname.startsWith(`${p}/`),
         );
@@ -96,7 +99,8 @@ export function BottomTabs() {
             </span>
           </Link>
         );
-      })}
+        })}
+      </div>
     </nav>
   );
 }

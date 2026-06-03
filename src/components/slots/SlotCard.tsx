@@ -33,7 +33,9 @@ export function SlotCard({
       data-testid="slot-card-link"
       aria-label={`${areaLabel(slot.area)} ${formatDateShort(slot.datetimeStart)} ${formatTime(slot.datetimeStart)} の枠の詳細`}
       className={[
-        "block rounded-md border p-4 transition-colors",
+        // base は現行どおり block。md+ のグリッドでは h-full + flex-col でセル高さを揃え、
+        // 料金行を md:mt-auto で下端に沈める(余白は中段 / s11視覚§4.1)。base は不変。
+        "block rounded-md border p-4 transition-colors md:flex md:h-full md:flex-col",
         ineligible
           ? "border-dashed border-line-200 bg-bg-sunken/50 hover:bg-bg-sunken"
           : "border-line-200 bg-bg-surface hover:bg-bg-sunken/60",
@@ -57,7 +59,7 @@ export function SlotCard({
         {remain}
       </p>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-line-100 pt-3">
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-line-100 pt-3 md:mt-auto">
         <SlotConditionChips conditions={slot.conditions} />
         {/* 女性視点では料金行を出さない(¥2,000 を見せない / s9 §5)。 */}
         {viewerGender === "female" ? null : (

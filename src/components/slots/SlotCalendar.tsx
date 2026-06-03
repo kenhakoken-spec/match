@@ -132,8 +132,12 @@ export function SlotCalendar<T>({
 
   return (
     <div>
-      {/* 月送り */}
-      <div className="flex items-center justify-between px-1">
+      {/* 月グリッド部は PC で中央 max-w に抑える(1セルが巨大化しない / s11視覚§5.1)。
+          base(モバイル)は現行どおり main 幅いっぱい＝1pxも変えないため md+ のみで制約する。
+          選択日の会(下)は親 main 幅に従わせ、md+ で2列に広げる(§5.2)。 */}
+      <div className="md:mx-auto md:w-full md:max-w-[520px]">
+        {/* 月送り */}
+        <div className="flex items-center justify-between px-1">
         <button
           type="button"
           onClick={() => goMonth(-1)}
@@ -194,7 +198,7 @@ export function SlotCalendar<T>({
                 }
                 aria-pressed={has ? isSelected : undefined}
                 className={[
-                  "relative flex h-11 w-11 flex-col items-center justify-center rounded-full font-sans text-[14px] tabular-nums transition-colors",
+                  "relative flex h-11 w-11 flex-col items-center justify-center rounded-full font-sans text-[14px] tabular-nums transition-colors md:h-12 md:w-12",
                   isSelected
                     ? "bg-accent-500 text-white"
                     : has
@@ -221,9 +225,12 @@ export function SlotCalendar<T>({
             </div>
           );
         })}
+        </div>
       </div>
+      {/* /月グリッド部(中央 max-w) */}
 
-      {/* 選択日の会(カレンダー直下・#2のカードを再利用) or 会ゼロ月の EmptyState */}
+      {/* 選択日の会(カレンダー直下・#2のカードを再利用) or 会ゼロ月の EmptyState。
+          月グリッドと違い main 幅に従い、md+ は2列に広げる(s11視覚§5.2)。 */}
       <div className="mt-5 border-t border-line-100 pt-5">
         {!monthHasAny ? (
           <EmptyState glyph="◇" title="この月に会はありません" body={emptyMonthBody} />
@@ -237,9 +244,12 @@ export function SlotCalendar<T>({
             >
               {selectedParts.m}/{selectedParts.d}（{WEEKDAY_HEADERS[selectedParts.wd]}） の会
             </h3>
-            <ul className="mt-3 space-y-3">
+            {/* base 1列(不変)。md+ 2列(カレンダー文脈は件数が少ないので lg も2列で落ち着かせる / s11視覚§5.2)。 */}
+            <ul className="mt-3 space-y-3 md:grid md:auto-rows-fr md:grid-cols-2 md:gap-3 md:space-y-0">
               {selectedSlots.map((s) => (
-                <li key={keyOf(s)}>{renderCard(s)}</li>
+                <li key={keyOf(s)} className="md:h-full">
+                  {renderCard(s)}
+                </li>
               ))}
             </ul>
           </>

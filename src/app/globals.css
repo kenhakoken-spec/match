@@ -20,14 +20,25 @@ body {
   line-height: 1.7;
 }
 
-/* LIFF はスマホ縦が主。アプリ本文は中央に最大幅で寄せる。 */
+/* S11(s11-visual §2.2): app-shell の 480px 固定を撤廃し「幅制約を持たない器」に降格。
+   中央寄せ・最大幅は各画面(内側コンテナ)が持つ。これで PC では一覧/LP が広がり、
+   読み物/フォームは shell-narrow(480px)を保てる。モバイル(〜767px)は各画面が
+   base で 480px を持つため見た目は不変(器は 480px だった頃と同じく中央 480px に収まる)。 */
 .app-shell {
-  max-width: 480px;
-  margin-inline: auto;
+  margin-inline: auto; /* 子が max-width を持つ時に中央寄せ */
   min-height: 100dvh;
+  width: 100%;
 }
 
 @layer components {
+  /* 読み物/入力系(オンボ・フォーム・詳細・mypage・identity・決済・評価・法務 等)。
+     PC でも 480px の最適行長を維持し間延びを防ぐ(s11-visual §2.2/§2.4)。 */
+  .shell-narrow {
+    max-width: 480px;
+    margin-inline: auto;
+    width: 100%;
+  }
+
   /* ヒーローの「あたたかい庭」のアトモスフィア背景 (s10-redesign §2.1/§9)。
      装飾専用・aria-hidden 前提。garden-plot SVG(製図)の置換＝意味の解読を強いない
      「光のにじみ」で温度と安心だけを伝える。色は全てトークン由来の透過(新トークン無し)。

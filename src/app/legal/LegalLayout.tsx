@@ -15,7 +15,7 @@ export function LegalLayout({
   return (
     <div className="flex min-h-[100dvh] flex-col">
       <AppHeader title={title} backHref="/" serif />
-      <main className="flex-1 px-5 pb-20 pt-4">
+      <main className="mx-auto w-full max-w-[480px] flex-1 px-5 pb-20 pt-4">
         <p className="mb-4 font-sans text-xs text-ink-500">最終更新: {updatedAt}</p>
         <div className="legal-body space-y-5 font-sans text-[14px] leading-relaxed text-ink-700">
           {children}

@@ -59,11 +59,11 @@ export default function ApplicationsPage() {
       {loading ? (
         <LoadingState />
       ) : error ? (
-        <main className="flex-1 px-5 pt-4">
+        <main className="mx-auto w-full max-w-[480px] flex-1 px-5 pt-4">
           <ErrorState onRetry={load} />
         </main>
       ) : sorted.length === 0 ? (
-        <main className="flex-1 px-5 pb-10 pt-4">
+        <main className="mx-auto w-full max-w-[480px] flex-1 px-5 pb-10 pt-4">
           <EmptyState
             glyph="◇"
             title="まだ応募はありません"
@@ -72,7 +72,7 @@ export default function ApplicationsPage() {
           />
         </main>
       ) : (
-        <main className="flex-1 px-5 pb-10 pt-4">
+        <main className="mx-auto w-full max-w-[480px] flex-1 px-5 pb-10 pt-4">
           <ul className="space-y-3">
             {sorted.map((item) => {
               // accepted の応募に対応する成立があれば、その確定有無と id で U-08 へ。

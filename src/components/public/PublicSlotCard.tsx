@@ -20,7 +20,7 @@ export function PublicSlotCard({ slot }: { slot: PublicSlotDTO }) {
       href={`/explore/${slot.id}`}
       data-testid="public-slot-card"
       aria-label={`${areaLabel(slot.area)} ${formatDateShort(slot.datetimeStart)} ${formatTime(slot.datetimeStart)} の会の詳細`}
-      className="block rounded-md border border-line-200 bg-bg-surface p-4 transition-colors hover:bg-bg-sunken/60"
+      className="block rounded-md border border-line-200 bg-bg-surface p-4 transition-colors hover:bg-bg-sunken/60 md:flex md:h-full md:flex-col"
     >
       {/* 上段: 日付ブロック(主役) + エリアチップ(従)。情報階層①いつ②どこ(s11 §2.3)。 */}
       <div className="flex items-start justify-between gap-3">
@@ -40,7 +40,7 @@ export function PublicSlotCard({ slot }: { slot: PublicSlotDTO }) {
         {full ? "満席です" : `${remain}名で成立します`}
       </p>
 
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-line-100 pt-3">
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-line-100 pt-3 md:mt-auto">
         <SlotConditionChips conditions={slot.conditions} />
         {/* 公開は性別不明 → 中立併記(女性無料を追記 / s9 §5.1・§5.3)。 */}
         <span className="shrink-0 font-sans text-[12px] text-ink-500">

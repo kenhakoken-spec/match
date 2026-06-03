@@ -29,7 +29,7 @@ export default function ProfileEditPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[100dvh] flex-col">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
         <AppHeader title="プロフィール編集" backHref="/mypage" />
         <LoadingState />
       </div>

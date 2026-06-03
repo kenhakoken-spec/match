@@ -61,7 +61,7 @@ export default function IdentityStatusPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[100dvh] flex-col">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
         <AppHeader title="本人確認" backHref="/onboarding" />
         <LoadingState label="状況を確認しています" />
       </div>
@@ -69,7 +69,7 @@ export default function IdentityStatusPage() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col">
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
       <AppHeader title="本人確認" backHref="/onboarding" />
       <PageBody className="flex flex-1 flex-col">
         <div className="flex flex-1 flex-col items-center justify-center text-center">

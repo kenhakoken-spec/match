@@ -86,7 +86,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="flex min-h-[100dvh] flex-col px-6 pb-10 pt-10">
+    <main className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col px-6 pb-10 pt-10">
       {/* スキップは説明スライド(1〜N-1)のみ。性別と最終ステップでは出さない。 */}
       <div className="flex justify-end">
         {!isGenderStep && !isLast ? (

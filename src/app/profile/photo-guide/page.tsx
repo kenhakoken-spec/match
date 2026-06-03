@@ -18,7 +18,7 @@ const AVOID = [
 
 export default function PhotoGuidePage() {
   return (
-    <div className="flex min-h-[100dvh] flex-col">
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
       <AppHeader title="良い写真のコツ" backHref="/profile/new" serif />
       <PageBody className="space-y-7">
         <p className="font-sans text-[15px] leading-7 text-ink-700">

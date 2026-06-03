@@ -88,7 +88,8 @@ export function ValueList() {
   return (
     <section className="mt-12">
       <SectionHeading>不安がいらない理由</SectionHeading>
-      <ul className="mt-5 space-y-3">
+      {/* base 1列(space-y-3 不変)。md+ は 2列(4枚=2×2 が最も整う / s11視覚§3.4)。lg も2列維持。 */}
+      <ul className="mt-5 space-y-3 md:grid md:grid-cols-2 md:gap-3 md:space-y-0">
         {LP_VALUES.map((v) => (
           <li
             key={v.title}

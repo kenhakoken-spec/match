@@ -40,7 +40,7 @@ export default function RatingsListPage() {
   }, []);
 
   return (
-    <div className="flex min-h-[100dvh] flex-col">
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
       <AppHeader title="評価のお願い" backHref="/mypage" serif />
       {loading ? (
         <LoadingState />

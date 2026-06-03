@@ -49,7 +49,7 @@ export default function ExploreDetailPage({ params }: { params: { id: string } }
 
   if (loading) {
     return (
-      <div className="flex min-h-[100dvh] flex-col">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
         <AppHeader title="会の詳細" backHref="/explore" />
         <LoadingState />
       </div>
@@ -57,7 +57,7 @@ export default function ExploreDetailPage({ params }: { params: { id: string } }
   }
   if (notFound) {
     return (
-      <div className="flex min-h-[100dvh] flex-col">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
         <AppHeader title="会の詳細" backHref="/explore" />
         <main className="flex-1 px-5 pt-4">
           <EmptyState
@@ -76,7 +76,7 @@ export default function ExploreDetailPage({ params }: { params: { id: string } }
   }
   if (error || !detail) {
     return (
-      <div className="flex min-h-[100dvh] flex-col">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
         <AppHeader title="会の詳細" backHref="/explore" />
         <main className="flex-1 px-5 pt-4">
           <ErrorState onRetry={load} />
@@ -88,7 +88,7 @@ export default function ExploreDetailPage({ params }: { params: { id: string } }
   const memberCount = detail.members.length;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col">
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
       <AppHeader title="会の詳細" backHref="/explore" />
 
       <main className="flex-1 px-5 pb-28 pt-4">

@@ -179,7 +179,7 @@ export default function RatingDetailPage({
 
   if (loading) {
     return (
-      <div className="flex min-h-[100dvh] flex-col">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
         <AppHeader title="きのうの会はいかがでしたか？" backHref="/ratings" serif />
         <LoadingState />
       </div>
@@ -188,7 +188,7 @@ export default function RatingDetailPage({
 
   if (error) {
     return (
-      <div className="flex min-h-[100dvh] flex-col">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
         <AppHeader title="きのうの会はいかがでしたか？" backHref="/ratings" serif />
         <main className="flex-1 px-5 pt-4">
           <ErrorState onRetry={load} />
@@ -200,7 +200,7 @@ export default function RatingDetailPage({
   if (!event) {
     // 該当イベント無し（既に全員評価済み等）。責めず、一覧へ戻す。
     return (
-      <div className="flex min-h-[100dvh] flex-col">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
         <AppHeader title="評価" backHref="/ratings" serif />
         <main className="flex-1 px-5 pt-8">
           <Card className="space-y-2">
@@ -225,7 +225,7 @@ export default function RatingDetailPage({
   const firstMemberId = event.members[0]?.userId;
 
   return (
-    <div className="flex min-h-[100dvh] flex-col">
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
       <AppHeader title="きのうの会はいかがでしたか？" backHref="/ratings" serif />
 
       <main className="flex-1 px-5 pb-28 pt-4">

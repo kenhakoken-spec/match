@@ -64,7 +64,7 @@ export default function MyPage() {
   return (
     <>
       <AppHeader title="マイページ" />
-      <main data-testid="mypage" className="flex-1 space-y-7 px-5 pb-10 pt-5">
+      <main data-testid="mypage" className="mx-auto w-full max-w-[480px] flex-1 space-y-7 px-5 pb-10 pt-5">
         {/* Profile summary card */}
         <Card>
           <div className="flex items-start gap-3.5">

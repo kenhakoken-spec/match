@@ -12,5 +12,6 @@
 - [S8 Venue Admin + Multi-axis](task_s8_venue_admin.md) — S8 admin 会場候補 (done): venue API shapes (items/{candidate,match}), no scaffold existed, admin roster has NO occupation/3軸 (要望1 already via PublicMemberCard), 313 baseline
 - [S9 HAKO-NIWA Rebrand + LP](task_s9_ui.md) — S9 (done): rendez→箱庭 rebrand, BrandMotif inline-SVG, LP, onboarding gender-first+sessionStorage, fee-by-gender (女性に¥2,000非表示), BrowseStatusBanner, new testids
 - [S11 Polish: date-cards/calendar/HeroScene](task_s11_ui.md) — S11 #2/#3/#8 (done): SlotDateBlock+AreaChip date-主役, SlotCalendar+ViewToggle, HeroScene SVG(6 silhouettes 3v3), jstDateParts/weekdayColorClass, fee-split preserved, testids view-toggle*/slot-calendar
+- [S11 Visual: PC responsive + Hero映え](task_s11_visual.md) — S11 視覚強化 (done): app-shell 480 撤廃(全画面影響), LP md+ 2-col hero(order-swap), explore/browse grid md2/lg3, HeroScene 6-layer rebuild, BottomTabs band-full-width. **モバイル 1px 不変** (widen all md:/lg:). 0 testids added
 - [Env: pkill & dev-server gotchas](feedback_env_wsl.md) — pkill/fuser exit 144 cascades; dev server lifetime; blank Bash output
 - [E2E data-testid map](task_e2e_testids.md) — 16 testids for S1/S2 UI: value→element map, no-spread-prop forwarding, git-untracked verify-by-grep

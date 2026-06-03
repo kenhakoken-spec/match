@@ -20,7 +20,7 @@ export function ComingSoon() {
   return (
     <main
       data-testid="coming-soon"
-      className="flex min-h-[100dvh] flex-col px-6 pb-10 pt-16"
+      className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col px-6 pb-10 pt-16"
     >
       <BrandLockup />
 

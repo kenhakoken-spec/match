@@ -49,11 +49,11 @@ export default function ExplorePage() {
       {loading ? (
         <LoadingState data-testid="loading" />
       ) : error ? (
-        <main className="flex-1 px-5 pt-4">
+        <main className="mx-auto w-full max-w-[480px] flex-1 px-5 pt-4 md:max-w-3xl md:px-8 lg:max-w-5xl">
           <ErrorState onRetry={load} />
         </main>
       ) : (
-        <main className="flex-1 px-5 pb-28 pt-4">
+        <main className="mx-auto w-full max-w-[480px] flex-1 px-5 pb-28 pt-4 md:max-w-3xl md:px-8 lg:max-w-5xl">
           <p className="mb-5 font-sans text-[14px] leading-relaxed text-ink-700">
             登録しなくても、どんな会が開かれているかご覧いただけます。参加には登録が必要です。
           </p>
@@ -73,9 +73,13 @@ export default function ExplorePage() {
               </div>
 
               {view === "list" ? (
-                <ul className="space-y-3" data-testid="public-slot-list">
+                /* base 1列(現行不変)。md+ 2列 / lg 3列のグリッド。行内でカード高さを揃える(s11視覚§4.1)。 */
+                <ul
+                  className="grid grid-cols-1 gap-3 md:auto-rows-fr md:grid-cols-2 lg:grid-cols-3"
+                  data-testid="public-slot-list"
+                >
                   {sorted.map((slot) => (
-                    <li key={slot.id}>
+                    <li key={slot.id} className="md:h-full">
                       <PublicSlotCard slot={slot} />
                     </li>
                   ))}
@@ -96,9 +100,12 @@ export default function ExplorePage() {
         </main>
       )}
 
-      {/* 予約はできない＝登録導線を常設(固定フッタ)。 */}
-      <div className="sticky bottom-0 space-y-2 border-t border-line-200 bg-bg-surface px-5 py-3 shadow-md">
-        <RegisterCta note="気になる会があれば、登録すると応募できます。" />
+      {/* 予約はできない＝登録導線を常設(固定フッタ)。
+          帯は全幅、中身は本文と同じ最大幅で中央に揃える(PC で CTA が間延びしない / s11視覚§4.2)。 */}
+      <div className="sticky bottom-0 border-t border-line-200 bg-bg-surface shadow-md">
+        <div className="mx-auto w-full max-w-[480px] space-y-2 px-5 py-3 md:max-w-3xl md:px-8 lg:max-w-5xl">
+          <RegisterCta note="気になる会があれば、登録すると応募できます。" />
+        </div>
       </div>
     </div>
   );

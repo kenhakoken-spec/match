@@ -46,7 +46,7 @@ export default function MatchDetailPage({ params }: { params: { id: string } }) 
   }, [id]);
 
   return (
-    <div className="flex min-h-[100dvh] flex-col">
+    <div className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col">
       <AppHeader title="成立詳細" backHref="/applications" serif />
       {loading ? (
         <LoadingState />

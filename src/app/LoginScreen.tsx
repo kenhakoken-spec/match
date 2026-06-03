@@ -88,7 +88,7 @@ export function LoginScreen() {
   );
 
   return (
-    <main className="flex min-h-[100dvh] flex-col px-6 pb-12 pt-16">
+    <main className="mx-auto flex min-h-[100dvh] w-full max-w-[480px] flex-col px-6 pb-12 pt-16 md:max-w-3xl md:px-8 lg:max-w-5xl">
       <BrandLockup />
 
       {/* ヒーロー(ファーストビュー)。relative isolate で z-index を閉じ、背後にアトモスフィア。
@@ -96,63 +96,79 @@ export function LoginScreen() {
       <section className="relative isolate mt-10 overflow-hidden">
         <div className="hero-atmosphere" aria-hidden />
 
-        <div className="relative pb-2 pt-2">
+        {/* base: Hero絵→コピー の縦並び(現行不変)。md+: 2カラム(左コピー / 右Hero)。
+            DOM順は現行(Hero→コピー)のまま維持し、md+ で order を入れ替える(base を1pxも変えない / s11視覚§3.2)。 */}
+        <div className="relative pb-2 pt-2 md:grid md:grid-cols-[minmax(0,46fr)_minmax(0,54fr)] md:items-center md:gap-8">
           {/* 主役級ビジュアル(#8 / s11 §4.2)。ロックアップとタグラインの間=ファーストビュー最初の絵。
-              枠線/影なし(空グラデが地に溶ける)。アトモスフィアと二重で温度を出す。aria-label済。 */}
-          <div className="mb-8 overflow-hidden rounded-lg">
+              枠線/影なし(空グラデが地に溶ける)。アトモスフィアと二重で温度を出す。aria-label済。
+              md+ では右カラム(order-2)で堂々と大きく。 */}
+          <div className="relative mb-8 overflow-hidden rounded-lg md:order-2 md:mb-0">
             <HeroScene className="block h-auto w-full" />
+            {/* 極薄ヴィネット(内側の暗まり ink-900 6%)で絵を締める(s11視覚§6.3)。装飾のみ。
+                これ以上濃くしない(暗い額縁はSaaS臭)。グレイン/アニメは入れない。 */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-lg shadow-[inset_0_0_40px_rgba(43,38,34,0.06)]"
+            />
           </div>
 
-          {/* タグライン(小さなキャッチ・字間広め)。主見出しを引き立てる(s10 §2.4)。 */}
-          <p className="font-sans text-[13px] font-bold tracking-[0.08em] text-accent-600">
-            みんなが出会える場所
-          </p>
-          {/* 主見出し(明朝・display強化 / s10 §2.4)。 */}
-          <h1 className="mt-3 font-serif text-[32px] leading-[1.3] tracking-[-0.01em] text-ink-900">
-            3対3で、会いにいく。
-          </h1>
+          {/* 左カラム(コピー＋CTA)。md+ は order-1。 */}
+          <div className="md:order-1">
+            {/* タグライン(小さなキャッチ・字間広め)。主見出しを引き立てる(s10 §2.4)。 */}
+            <p className="font-sans text-[13px] font-bold tracking-[0.08em] text-accent-600">
+              みんなが出会える場所
+            </p>
+            {/* 主見出し(明朝・display強化 / s10 §2.4)。PC で明朝の主見出しを大きく効かせる(s11視覚§3.2)。 */}
+            <h1 className="mt-3 font-serif text-[32px] leading-[1.3] tracking-[-0.01em] text-ink-900 md:text-[40px] md:leading-[1.15] lg:text-[44px]">
+              3対3で、会いにいく。
+            </h1>
 
-          {/* サブ見出し＝3秒で「誰のための/何が違う」を出す。グラデ上でも可読性を確保するため
-              白面カードに載せAAを担保(s10 §2.3/§4.5)。 */}
-          <div className="mt-5 rounded-md border border-line-200 bg-bg-surface/70 p-4 shadow-sm backdrop-blur-[2px]">
-            <p className="max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
-              男女3人ずつ、計6人で会います。1対1の気まずさも、写真詐欺の不安もありません。本人確認を済ませた相手と、会場の手配までおまかせで。
+            {/* サブ見出し＝3秒で「誰のための/何が違う」を出す。グラデ上でも可読性を確保するため
+                白面カードに載せAAを担保(s10 §2.3/§4.5)。md+ は左カラム幅に追従(max-w 解除)。 */}
+            <div className="mt-5 rounded-md border border-line-200 bg-bg-surface/70 p-4 shadow-sm backdrop-blur-[2px]">
+              <p className="max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700 md:max-w-none">
+                男女3人ずつ、計6人で会います。1対1の気まずさも、写真詐欺の不安もありません。本人確認を済ませた相手と、会場の手配までおまかせで。
+              </p>
+            </div>
+
+            {/* エラー表示は主CTAの直上(押した場所の近くで結果が見える / s10 §8.2)。
+                state/warn 系の淡い橙地。赤(danger)にはしない。 */}
+            {error ? (
+              <p
+                role="alert"
+                className="mt-5 rounded-md border border-state-warn/45 bg-[#F7EFD9] px-3 py-2 font-sans text-[13px] leading-relaxed text-state-warn"
+              >
+                {error}
+              </p>
+            ) : null}
+
+            {/* 主従CTA(ヒーロー内)。md+ はボタン群だけ幅を抑え間延び/押しにくさを防ぐ(s11視覚§3.2)。 */}
+            <div className="mt-5 space-y-3 md:max-w-[20rem]">
+              {primaryCta("login-button")}
+              <ButtonLink href="/explore" variant="secondary" data-testid="explore-cta">
+                会を見てみる
+              </ButtonLink>
+            </div>
+
+            {/* LINE外案内を常設(エラーが無くても / s10 §8.1)。押す前に前提を理解できる。 */}
+            <p className="mt-3 font-sans text-[13px] leading-relaxed text-ink-500">
+              スマホのLINEで開くと、そのまま進めます。
             </p>
           </div>
-
-          {/* エラー表示は主CTAの直上(押した場所の近くで結果が見える / s10 §8.2)。
-              state/warn 系の淡い橙地。赤(danger)にはしない。 */}
-          {error ? (
-            <p
-              role="alert"
-              className="mt-5 rounded-md border border-state-warn/45 bg-[#F7EFD9] px-3 py-2 font-sans text-[13px] leading-relaxed text-state-warn"
-            >
-              {error}
-            </p>
-          ) : null}
-
-          {/* 主従CTA(ヒーロー内)。 */}
-          <div className="mt-5 space-y-3">
-            {primaryCta("login-button")}
-            <ButtonLink href="/explore" variant="secondary" data-testid="explore-cta">
-              会を見てみる
-            </ButtonLink>
-          </div>
-
-          {/* LINE外案内を常設(エラーが無くても / s10 §8.1)。押す前に前提を理解できる。 */}
-          <p className="mt-3 font-sans text-[13px] leading-relaxed text-ink-500">
-            スマホのLINEで開くと、そのまま進めます。
-          </p>
         </div>
       </section>
 
-      {/* 不安解消の価値4カード → ご利用の流れ → 開催について(具体) */}
+      {/* 不安解消の価値4カード → ご利用の流れ → 開催について(具体)。
+          md+ は「流れ｜開催」を横2カラムにして縦の冗長感を減らす(s11視覚§3.4)。base は縦のまま不変。 */}
       <ValueList />
-      <FlowList />
-      <ConcreteBlock />
+      <div className="md:grid md:grid-cols-2 md:items-start md:gap-8">
+        <FlowList />
+        <ConcreteBlock />
+      </div>
 
-      {/* 末尾CTA(再掲)。スクロールしきった人を取りこぼさない。淡い accent 地で締める(s10 §4.2)。 */}
-      <section className="mt-12 rounded-lg border border-line-200 bg-accent-100/60 p-6">
+      {/* 末尾CTA(再掲)。スクロールしきった人を取りこぼさない。淡い accent 地で締める(s10 §4.2)。
+          md+ は中央に幅を抑えてボタンの間延びを防ぐ(s11視覚§3.4)。 */}
+      <section className="mt-12 rounded-lg border border-line-200 bg-accent-100/60 p-6 md:mx-auto md:max-w-[520px]">
         <h2 className="text-center font-serif text-[18px] leading-snug text-ink-900">
           まずは、のぞいてみませんか。
         </h2>
