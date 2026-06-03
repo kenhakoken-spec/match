@@ -28,7 +28,7 @@ type Slide = {
 const SLIDES: Slide[] = [
   {
     kicker: "グループだから安心",
-    title: "男女3対3で会う。",
+    title: "男女あわせて6名で会う。",
     body: "1対1の重さはありません。はじめての人とも、場の力で自然に話せます。",
     motif: "leaf",
   },
@@ -198,7 +198,7 @@ function GenderStep({
         あなたについて教えてください
       </h1>
       <p className="mt-3 font-sans text-[15px] leading-7 text-ink-700">
-        男女3人ずつで会うため、最初に教えてください。
+        男女のバランスを保つため、最初に教えてください。
       </p>
 
       <div

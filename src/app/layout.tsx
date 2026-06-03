@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "HAKO-NIWA（箱庭）— みんなが出会える場所",
   description:
-    "HAKO-NIWA（箱庭）は、安心できる場でゆっくり出会うためのサービス。日時とエリアを選んで、男女3人ずつ6人で集まる。東京・恵比寿/池袋/銀座。",
+    "HAKO-NIWA（箱庭）は、安心できる場でゆっくり出会うためのサービス。日時とエリアを選んで、男女あわせて6名で集まる。東京・恵比寿/池袋/銀座。",
 };
 
 export const viewport: Viewport = {

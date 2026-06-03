@@ -30,7 +30,7 @@ export function HeroScene({ className }: { className?: string }) {
       viewBox="0 0 360 300"
       className={className}
       role="img"
-      aria-label="夕暮れの小さな庭で、男女3人ずつが向かい合う情景のイラスト"
+      aria-label="夕暮れの小さな庭で、男女あわせて6名が向かい合う情景のイラスト"
       preserveAspectRatio="xMidYMid meet"
     >
       <defs>

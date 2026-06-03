@@ -38,7 +38,7 @@ export function ComingSoon() {
 
           <div className="mt-5 rounded-md border border-line-200 bg-bg-surface/70 p-4 shadow-sm backdrop-blur-[2px]">
             <p className="max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700">
-              HAKO-NIWA（箱庭）は、男女3人ずつ・計6人で会う、安心できる出会いの場です。いまは公開の準備をしています。もうしばらくお待ちください。
+              HAKO-NIWA（箱庭）は、男女あわせて6名で会う、安心できる出会いの場です。いまは公開の準備をしています。もうしばらくお待ちください。
             </p>
           </div>
 
@@ -56,7 +56,7 @@ export function ComingSoon() {
             会い方
           </dt>
           <dd className="mt-1 font-sans text-[15px] leading-7 text-ink-700">
-            3対3、計6人で会います。会場はこちらで手配します。
+            男女あわせて6名で会います。会場はこちらで手配します。
           </dd>
         </div>
         <div>

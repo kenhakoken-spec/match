@@ -16,3 +16,4 @@
 - [S12 Profile刷新 + 定員柔軟化](task_s12_ui.md) — S12 #1/#6/#7/#8/#10/#14 (done): 写真→ProfileIcon(10 line-SVGs), 職業free-text, 性別 create外し(onboarding由来), 成立詳細にage/職業/bio, 定員2:4許容(fillProgressText/capacityText). **route+zod seam had to be wired** (backend domain/repo ready but route open). testids icon-picker/icon-option-*
 - [Env: pkill & dev-server gotchas](feedback_env_wsl.md) — pkill/fuser exit 144 cascades; dev server lifetime; blank Bash output
 - [E2E data-testid map](task_e2e_testids.md) — 16 testids for S1/S2 UI: value→element map, no-spread-prop forwarding, git-untracked verify-by-grep
+- [F4 Copy-deck application](task_f4_copydeck.md) — F4 (done): 写真詐欺撤去/男女あわせて6名/前日夜会場/料金中立/評価=翌日夜. Visible-strings-only, comment-lines kept as code-intent, 0 new testids/tokens

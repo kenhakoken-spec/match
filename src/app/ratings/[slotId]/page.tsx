@@ -238,10 +238,10 @@ export default function RatingDetailPage({
         {/* 任意・匿名性の明示（caption・先頭）。安心して正直に付けられるように（§4.7 D）。 */}
         <div className="mt-4 rounded-md border border-line-200 bg-bg-sunken px-4 py-3">
           <p className="font-sans text-[13px] leading-relaxed text-ink-700">
-            ご一緒した方の印象を、3つの観点で教えてください（任意）。
+            会のあと、翌日の夜までに同席した方への評価をお願いします。任意で、相手には個別に開示されません。
           </p>
           <p className="mt-1 font-sans text-xs leading-relaxed text-ink-500">
-            ※ 評価は相手に個別開示されません。いただいた内容は運営のみが確認します。
+            ※ ご一緒した方の印象を3つの観点で。いただいた内容は運営のみが確認します。
           </p>
         </div>
 

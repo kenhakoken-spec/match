@@ -60,7 +60,7 @@ export default function RatingsListPage() {
         <main className="flex-1 px-5 pb-12 pt-4">
           {/* 誠実なリード文。任意・匿名性を一覧の時点でも静かに添える。 */}
           <p className="font-sans text-[14px] leading-relaxed text-ink-700">
-            ご一緒した方の印象を3つの観点で教えてください。評価は任意で、相手に個別開示されません。
+            会のあと、翌日の夜までに同席した方への評価をお願いします。3つの観点で、任意です。相手には個別に開示されません。
           </p>
 
           <ul className="mt-4 space-y-3" data-testid="rating-list">

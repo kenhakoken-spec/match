@@ -120,14 +120,14 @@ export function LoginScreen() {
             </p>
             {/* 主見出し(明朝・display強化 / s10 §2.4)。PC で明朝の主見出しを大きく効かせる(s11視覚§3.2)。 */}
             <h1 className="mt-3 font-serif text-[32px] leading-[1.3] tracking-[-0.01em] text-ink-900 md:text-[40px] md:leading-[1.15] lg:text-[44px]">
-              3対3で、会いにいく。
+              会って、はじまる。
             </h1>
 
             {/* サブ見出し＝3秒で「誰のための/何が違う」を出す。グラデ上でも可読性を確保するため
                 白面カードに載せAAを担保(s10 §2.3/§4.5)。md+ は左カラム幅に追従(max-w 解除)。 */}
             <div className="mt-5 rounded-md border border-line-200 bg-bg-surface/70 p-4 shadow-sm backdrop-blur-[2px]">
               <p className="max-w-[20rem] font-sans text-[15px] leading-7 text-ink-700 md:max-w-none">
-                男女3人ずつ、計6人で会います。1対1の気まずさも、写真詐欺の不安もありません。本人確認を済ませた相手と、会場の手配までおまかせで。
+                男女あわせて6名、はじめましての席。やり取りは要りません。本人確認を済ませた人と、会うことに集中できます。会場の手配までおまかせで。
               </p>
             </div>
 

@@ -35,13 +35,13 @@ export type ValueItem = { icon: ReactNode; title: string; body: string };
 export const LP_VALUES: ValueItem[] = [
   {
     icon: <GroupIcon />,
-    title: "3対3だから、気まずくない",
+    title: "グループだから、気まずくない",
     body: "1対1の重さがありません。はじめての人とも、場の力で自然に話せます。",
   },
   {
     icon: <ShieldIcon />,
     title: "全員、本人確認済み",
-    body: "公的身分証で確認しています。安心して会えます。",
+    body: "公的身分証で年齢まで確認しています。安心して会えます。",
   },
   {
     icon: <BrandMotif name="lantern" className="h-7 w-7" />,
@@ -51,7 +51,7 @@ export const LP_VALUES: ValueItem[] = [
   {
     icon: <BrandMotif name="gate" className="h-7 w-7" />,
     title: "やり取り不要・会場もおまかせ",
-    body: "メッセージの往復も、お店探しも要りません。",
+    body: "メッセージの往復も、お店探しも要りません。会うことだけ考えてください。",
   },
 ];
 
@@ -61,7 +61,7 @@ export const LP_STEPS: string[] = [
   "本人確認（公的身分証）",
   "プロフィール登録",
   "会を選んで応募",
-  "6人で成立 → 会場をご連絡",
+  "成立したら、前日の夜に会場をご連絡",
 ];
 
 // 開催の具体(s10 §4.3)。曜日・時刻という事実で実在感を出す(空欄やぼかし表現にしない)。
@@ -171,7 +171,9 @@ export function ConcreteBlock() {
         <FactRow label="開催">
           <span className="tabular-nums">水・金・土 19:30〜</span>
         </FactRow>
-        <FactRow label="人数">男女3人ずつ・計6人</FactRow>
+        <FactRow label="定員">男女あわせて6名（各2〜4名）</FactRow>
+        <FactRow label="会場">会場は運営が手配し、前日の夜にお知らせします。</FactRow>
+        <FactRow label="参加費">参加が決まったときだけ。女性は無料です。（飲食代は別）</FactRow>
       </dl>
     </section>
   );
