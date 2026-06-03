@@ -22,7 +22,12 @@ export interface ProfileDTO {
   age: number; // server-computed
   areaPref: Area[];
   bio: string | null;
+  /** 【S12 #8】写真URL(後方互換・将来用)。新規はアイコン(iconKey)を使う。 */
   photoUrl: string | null;
+  /** 【S12 #8】選択したプリセットアイコンの識別子（未選択は null）。 */
+  iconKey: string | null;
+  /** 【S12 #6】職業の自由入力（未入力は null）。enum occupation の後継。 */
+  occupationText: string | null;
   ratingAvg: number;
   ratingCount: number;
 }

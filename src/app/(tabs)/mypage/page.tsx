@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/Surface";
 import { StarSummary } from "@/components/ui/Stars";
 import { StatusPill, VerifiedBadge, PremiumBadge } from "@/components/ui/StatusPill";
 import { BadgeProgress } from "@/components/badges/BadgeProgress";
+import { ProfileIcon } from "@/components/profile/ProfileIcon";
 import { getMe } from "@/app/_lib/api";
 import { fetchMyBadges, type MyBadgesDTO } from "@/app/_lib/api-badge";
 import { fetchMyPayments, type PaymentDTO } from "@/app/_lib/api-payment";
@@ -68,9 +69,10 @@ export default function MyPage() {
         {/* Profile summary card */}
         <Card>
           <div className="flex items-start gap-3.5">
+            {/* S12 #8: 写真があれば後方互換で表示。無ければ選択アイコンを線画で表示。 */}
             <div
               aria-hidden
-              className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line-200 bg-bg-sunken text-ink-300"
+              className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line-200 bg-bg-sunken text-accent-600"
             >
               {profile?.photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -79,8 +81,10 @@ export default function MyPage() {
                   alt=""
                   className="h-full w-full object-cover"
                 />
+              ) : profile?.iconKey ? (
+                <ProfileIcon iconKey={profile.iconKey} className="h-3/5 w-3/5" />
               ) : (
-                <span className="text-xl">◯</span>
+                <span className="text-xl text-ink-300">◯</span>
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -109,6 +113,12 @@ export default function MyPage() {
                     count={profile.ratingCount}
                   />
                 </div>
+              ) : null}
+              {/* S12 #6: 職業(自由入力)を静かに併記。 */}
+              {profile?.occupationText ? (
+                <p className="mt-2 font-sans text-[13px] text-ink-500">
+                  {profile.occupationText}
+                </p>
               ) : null}
               {profile?.areaPref?.length ? (
                 <p className="mt-2 font-sans text-[13px] text-ink-500">

@@ -53,11 +53,16 @@ export interface ProfileEntity {
   userId: string;
   gender: Gender;
   birthdate: Date;
+  /** S12 #8: 写真URL(後方互換・将来用)。新規はアイコン(iconKey)を使う。 */
   photoUrl: string | null;
+  /** S12 #8: 選択したプリセットアイコンの識別子（未選択は null）。 */
+  iconKey: string | null;
   bio: string | null;
   areaPref: Area[];
-  /** S8: 職種（表示・プレビュー用。未設定は null）。 */
+  /** S8: 職種enum（表示・プレビュー用。未設定は null）。S12 #6 で後方互換扱い。 */
   occupation: Occupation | null;
+  /** S12 #6: 職業の自由入力（未入力は null）。enum occupation の後継。 */
+  occupationText: string | null;
   /** 総合平均(=多軸 overall)。後方互換のためフィールド名は ratingAvg のまま。 */
   ratingAvg: number;
   ratingCount: number;
@@ -97,7 +102,14 @@ export interface SlotEntity {
   id: string;
   datetimeStart: Date;
   area: Area;
+  /** 後方互換: per-gender 上限(既定3)。 */
   capacityPerGender: number;
+  /** S12 #10: 会の合計定員（既定6）。 */
+  capacityTotal: number;
+  /** S12 #10: 各性別の最低人数（偏り防止。既定2）。 */
+  minPerGender: number;
+  /** S12 #10: 各性別の上限人数（過充足防止。既定4）。 */
+  maxPerGender: number;
   status: SlotStatus;
   minAge: number | null;
   maxAge: number | null;
@@ -191,8 +203,12 @@ export interface UpsertProfileInput {
   birthdate: Date;
   areaPref: Area[];
   bio?: string | null;
-  /** S8: 職種（任意）。未指定は既存値維持 / 新規は null。 */
+  /** S8: 職種enum（任意）。未指定は既存値維持 / 新規は null。S12 #6 で後方互換。 */
   occupation?: Occupation | null;
+  /** S12 #6: 職業の自由入力（任意・要サニタイズ）。未指定は既存値維持 / 新規は null。 */
+  occupationText?: string | null;
+  /** S12 #8: プリセットアイコンの識別子（任意）。未指定は既存値維持 / 新規は null。 */
+  iconKey?: string | null;
 }
 
 export interface SubmitIdentityInput {
@@ -210,6 +226,12 @@ export interface CreateSlotInput {
   maxAge?: number | null;
   requiresBadge?: boolean;
   capacityPerGender?: number;
+  /** S12 #10: 会の合計定員（未指定は既定6）。 */
+  capacityTotal?: number;
+  /** S12 #10: 各性別の最低人数（未指定は既定2）。 */
+  minPerGender?: number;
+  /** S12 #10: 各性別の上限人数（未指定は既定4）。 */
+  maxPerGender?: number;
   feeMale?: number;
   note?: string | null;
 }
@@ -458,9 +480,23 @@ export interface Repo {
   venueCandidates: VenueCandidatesRepo;
 }
 
-/** 応募(Application)に紐づくユーザーの最小情報（メンバー要約用・PII最小）。 */
+/**
+ * 応募(Application)に紐づくユーザーの情報（成立メンバー要約用）。
+ * PII最小は維持: lineUserId は **絶対に含めない**（userId は内部解決用で DTO には出さない）。
+ * S12 #7/#4/#14: 成立した相手にだけ見える情報として birthdate(→age算出)・
+ * occupationText/occupation(→職業表示)・bio を載せる。serializers が age に変換し
+ * 正確な birthdate は DTO に出さない（toMatchMemberDTO が出口関門）。
+ */
 export interface MatchMemberRow {
   userId: string;
   displayName: string | null;
   gender: Gender;
+  /** S12 #7: 年齢算出の元。DTO では age に変換され、生年月日そのものは出さない。null許容。 */
+  birthdate: Date | null;
+  /** S12 #6/#14: 職業の自由入力（優先表示）。 */
+  occupationText: string | null;
+  /** S8/#14: 職業enum（自由入力が無い旧データの後方互換表示）。 */
+  occupation: Occupation | null;
+  /** S12 #4/#14: ひとこと自己紹介。成立相手にのみ開示。 */
+  bio: string | null;
 }

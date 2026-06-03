@@ -8,12 +8,12 @@ import { FillDots } from "@/components/slots/FillDots";
 import { SlotConditionChips } from "@/components/slots/SlotConditionChips";
 import { AreaChip, SlotDateBlock } from "@/components/slots/SlotDateBlock";
 import { formatDateShort, formatTime } from "@/app/_lib/datetime";
-import { areaLabel, remainingText } from "@/app/_lib/slots-ui";
+import { areaLabel, fillProgressText, totalRemaining } from "@/app/_lib/slots-ui";
 import type { PublicSlotDTO } from "@/lib/types";
 
 export function PublicSlotCard({ slot }: { slot: PublicSlotDTO }) {
-  const remain = remainingText(slot);
-  const full = remain === "満員";
+  // S12 #10: 合計6名で柔軟(2:4 も成立)。「あと○名で成立」を主表示にする。
+  const full = totalRemaining(slot) === 0;
 
   return (
     <Link
@@ -37,7 +37,7 @@ export function PublicSlotCard({ slot }: { slot: PublicSlotDTO }) {
           full ? "text-state-muted" : "text-ink-700",
         ].join(" ")}
       >
-        {full ? "満席です" : `${remain}名で成立します`}
+        {fillProgressText(slot)}
       </p>
 
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-line-100 pt-3 md:mt-auto">

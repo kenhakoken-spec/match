@@ -112,6 +112,9 @@ export default function AdminSlotsPage() {
           datetimeStart,
           area,
           capacityPerGender: 3,
+          capacityTotal: 6,
+          minPerGender: 2,
+          maxPerGender: 4,
           filled: { male: 0, female: 0 },
           conditions: previewConditions,
           status: "open",
@@ -193,8 +196,10 @@ export default function AdminSlotsPage() {
           </div>
         </div>
 
-        {/* 定員(固定3対3) */}
-        <p className="mt-4 font-sans text-[13px] text-ink-500">定員: 男女各3名（3対3・固定）</p>
+        {/* 定員(S12 #10: 合計6名で柔軟。各性別 2〜4名＝2:4 も成立) */}
+        <p className="mt-4 font-sans text-[13px] text-ink-500">
+          定員: 男女あわせて6名（各性別2〜4名・2対4も成立）
+        </p>
 
         {/* 参加条件(限定イベント) */}
         <div className="mt-5 border-t border-line-100 pt-4">

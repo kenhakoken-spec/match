@@ -168,6 +168,41 @@ export function remainingText(slot: Pick<SlotDTO, "filled" | "capacityPerGender"
   return `あと ${parts.join("・")}`;
 }
 
+// ---- 定員(S12 #10): 合計6名で柔軟(各性別 min〜max、2:4〜4:2 も成立)。 ----
+// 厳密 3:3 を撤廃し、「あと○名で成立」(合計) を主表示にする。各性別の min/max は補足。
+// SlotDTO/PublicSlotDTO どちらも capacityTotal/minPerGender/maxPerGender を持つ。
+type FlexCapacityLike = {
+  filled: { male: number; female: number };
+  capacityTotal: number;
+  minPerGender: number;
+  maxPerGender: number;
+};
+
+/** 合計の残数(あと何名で成立か)。0 以上に丸める。 */
+export function totalRemaining(slot: Pick<FlexCapacityLike, "filled" | "capacityTotal">): number {
+  const filled = Math.max(0, slot.filled.male) + Math.max(0, slot.filled.female);
+  return Math.max(0, slot.capacityTotal - filled);
+}
+
+/** 定員の説明文。例: 「男女あわせて6名（各2〜4名）」。min===max のときは範囲を出さない。 */
+export function capacityText(slot: Pick<FlexCapacityLike, "capacityTotal" | "minPerGender" | "maxPerGender">): string {
+  const range =
+    slot.minPerGender === slot.maxPerGender
+      ? `各${slot.minPerGender}名`
+      : `各${slot.minPerGender}〜${slot.maxPerGender}名`;
+  return `男女あわせて${slot.capacityTotal}名（${range}）`;
+}
+
+/**
+ * 「あと○名で成立」中心の残数表示(合計ベース)。満席なら "満席です"。
+ * 各性別の残枠が偏っている場合に限り、括弧で性別内訳を添える(任意・控えめ)。
+ */
+export function fillProgressText(slot: FlexCapacityLike): string {
+  const rem = totalRemaining(slot);
+  if (rem === 0) return "満席です";
+  return `あと${rem}名で成立`;
+}
+
 export function yen(amount: number): string {
   return `¥${amount.toLocaleString("ja-JP")}`;
 }

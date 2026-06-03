@@ -96,20 +96,30 @@ async function listAdmins(): Promise<string[]> {
 }
 
 /**
- * 成立メンバー（accepted/applied の有効応募者）の最小情報を解決する。
- * PII最小: userId/displayName/gender のみ（lineUserId は引かない）。
+ * 成立メンバー（accepted/applied の有効応募者）の情報を解決する。
+ * PII最小: lineUserId は **取得も保持もしない**（userId は内部解決用で DTO には出ない）。
+ * 【S12 #7/#4/#14】成立した相手に開示する birthdate(→age)・occupation(自由入力優先)・bio を
+ * プロフィールから載せる。serializers(toMatchMemberDTO) が age へ変換し PII を剥がす出口関門。
  */
 export async function getMatchMembers(slotId: string): Promise<MatchMemberRow[]> {
   const repo = getRepo();
   const apps = await repo.applications.listActiveBySlot(slotId);
   const rows: MatchMemberRow[] = [];
   for (const a of apps) {
-    const user = await repo.users.findById(a.userId);
+    const [user, profile] = await Promise.all([
+      repo.users.findById(a.userId),
+      repo.profiles.findByUserId(a.userId),
+    ]);
     rows.push({
       userId: a.userId,
       // displayName は表示用のみ。lineUserId は **取得も保持もしない**。
       displayName: user?.displayName ?? null,
       gender: a.gender,
+      // 成立詳細でのみ開示（一覧/公開には出さない）。生年月日は DTO 化で age に変換される。
+      birthdate: profile?.birthdate ?? null,
+      occupationText: profile?.occupationText ?? null,
+      occupation: profile?.occupation ?? null,
+      bio: profile?.bio ?? null,
     });
   }
   return rows;

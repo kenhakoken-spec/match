@@ -107,19 +107,38 @@ function MatchBody({ match }: { match: MatchDetailDTO }) {
             ) : null}
           </Card>
 
-          {/* メンバー — displayName + gender のみ(PII最小) */}
+          {/* メンバー — 成立した相手にだけ見える: 名前・性別・年齢・職業・ひとこと(S12 #4/#7/#14)。
+              一覧/公開プレビューには出さない(PII最小は維持: 正確な生年月日/連絡先は無い)。 */}
           <section className="mt-6">
             <h2 className="font-sans text-[15px] font-bold text-ink-900">
               メンバー（{match.members.length}名）
             </h2>
+            <p className="mt-1 font-sans text-[12px] text-ink-500">
+              この情報は、同じ会で成立した方にのみ表示されます。
+            </p>
             <ul className="mt-3 space-y-2">
               {match.members.map((m, i) => (
                 <li
                   key={`${m.displayName}-${i}`}
-                  className="flex items-center justify-between rounded-md border border-line-200 bg-bg-surface px-4 py-3"
+                  className="rounded-md border border-line-200 bg-bg-surface px-4 py-3"
                 >
-                  <span className="font-sans text-[15px] text-ink-900">{m.displayName}</span>
-                  <span className="font-sans text-[13px] text-ink-500">{GENDER_LABELS[m.gender]}</span>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-sans text-[15px] font-semibold text-ink-900">
+                      {m.displayName}
+                    </span>
+                    <span className="shrink-0 font-sans text-[13px] tabular-nums text-ink-500">
+                      {GENDER_LABELS[m.gender]}
+                      {m.age != null ? `・${m.age}歳` : ""}
+                    </span>
+                  </div>
+                  {m.occupation ? (
+                    <p className="mt-0.5 font-sans text-[13px] text-ink-700">{m.occupation}</p>
+                  ) : null}
+                  {m.bio ? (
+                    <p className="mt-1.5 font-sans text-[13px] leading-relaxed text-ink-700">
+                      {m.bio}
+                    </p>
+                  ) : null}
                 </li>
               ))}
             </ul>

@@ -21,7 +21,9 @@ import { getMe } from "@/app/_lib/api";
 import {
   APPLICATION_STATUS_PILL,
   areaLabel,
+  capacityText,
   conditionLines,
+  fillProgressText,
   reasonSpec,
 } from "@/app/_lib/slots-ui";
 import { jstDateParts, weekdayColorClass } from "@/app/_lib/datetime";
@@ -113,7 +115,7 @@ export default function SlotDetailPage({ params }: { params: { id: string } }) {
                   <span className="inline-flex items-center rounded-sm border border-line-200 bg-bg-sunken px-2 py-0.5 font-sans text-[12px] text-ink-700">
                     {areaLabel(slot.area)}
                   </span>
-                  <span className="font-sans text-[13px] text-ink-500">3 対 3（男女各3名）</span>
+                  <span className="font-sans text-[13px] text-ink-500">{capacityText(slot)}</span>
                 </div>
               </>
             );
@@ -165,15 +167,21 @@ export default function SlotDetailPage({ params }: { params: { id: string } }) {
           </div>
         ) : null}
 
-        {/* 募集状況 */}
+        {/* 募集状況(S12 #10: 合計6名で柔軟。「あと○名で成立」を主表示) */}
         <section className="mt-6">
           <h2 className="font-sans text-[13px] font-bold text-ink-700">募集状況</h2>
           <div className="mt-2 rounded-md border border-line-200 bg-bg-surface p-4">
-            <FillDots
-              filled={slot.filled}
-              capacityPerGender={slot.capacityPerGender}
-              variant="detail"
-            />
+            <p className="font-sans text-[15px] font-semibold text-ink-900">
+              {fillProgressText(slot)}
+            </p>
+            <p className="mt-0.5 font-sans text-[12px] text-ink-500">{capacityText(slot)}</p>
+            <div className="mt-3 border-t border-line-100 pt-3">
+              <FillDots
+                filled={slot.filled}
+                capacityPerGender={slot.capacityPerGender}
+                variant="detail"
+              />
+            </div>
           </div>
         </section>
 

@@ -78,6 +78,9 @@ const FALLBACK_PROFILE: ProfileDTO = {
   areaPref: ["ebisu", "ginza"],
   bio: "週末はカフェ巡りと小さな展示を見にいくのが好きです。落ち着いて話せる方とお会いできたら。",
   photoUrl: null,
+  // S12 #8: 写真ではなくプリセットアイコン。#6: 職業は自由入力。
+  iconKey: "flower",
+  occupationText: "クリエイティブ職",
   ratingAvg: 4.3,
   ratingCount: 12,
 };
@@ -171,6 +174,10 @@ export interface ProfileInput {
   birthdate: string;
   areaPref: ProfileDTO["areaPref"];
   bio?: string;
+  /** 【S12 #8】選択したプリセットアイコンの識別子。 */
+  iconKey?: string;
+  /** 【S12 #6】職業の自由入力（最大40字・任意）。 */
+  occupationText?: string;
 }
 
 export async function saveProfile(

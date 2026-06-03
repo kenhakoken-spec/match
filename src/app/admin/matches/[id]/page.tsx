@@ -267,7 +267,7 @@ export default function AdminMatchDetailPage({ params }: { params: { id: string 
                 </span>
               </p>
               <p className="mt-0.5 font-sans text-[13px] tabular-nums text-ink-500">
-                男女各3名・{match.filled.female + match.filled.male}名で成立
+                男女あわせて{match.filled.female + match.filled.male}名で成立（女性{match.filled.female}・男性{match.filled.male}）
               </p>
             </div>
             <StatusPill tone={STATUS_PILL[match.status].tone} glyph={STATUS_PILL[match.status].glyph}>
@@ -275,7 +275,8 @@ export default function AdminMatchDetailPage({ params }: { params: { id: string 
             </StatusPill>
           </div>
 
-          {/* 6名確認 — PII最小(displayName + gender)。 */}
+          {/* 成立メンバー — 運営確認用: 名前・性別・年齢・職業(S12 #14)。
+              PII最小は維持(正確な生年月日/lineUserId は無い)。 */}
           <section className="mt-6">
             <h2 className="font-sans text-[15px] font-bold text-ink-900">
               成立メンバー（{match.members.length}名）
@@ -284,10 +285,18 @@ export default function AdminMatchDetailPage({ params }: { params: { id: string 
               {match.members.map((m, i) => (
                 <li
                   key={`${m.displayName}-${i}`}
-                  className="flex items-center justify-between rounded-md border border-line-200 bg-bg-surface px-4 py-3"
+                  className="rounded-md border border-line-200 bg-bg-surface px-4 py-3"
                 >
-                  <span className="font-sans text-[15px] text-ink-900">{m.displayName}</span>
-                  <span className="font-sans text-[13px] text-ink-500">{GENDER_LABELS[m.gender]}</span>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-sans text-[15px] text-ink-900">{m.displayName}</span>
+                    <span className="shrink-0 font-sans text-[13px] tabular-nums text-ink-500">
+                      {GENDER_LABELS[m.gender]}
+                      {m.age != null ? `・${m.age}歳` : ""}
+                    </span>
+                  </div>
+                  {m.occupation ? (
+                    <p className="mt-0.5 font-sans text-[13px] text-ink-700">{m.occupation}</p>
+                  ) : null}
                 </li>
               ))}
             </ul>

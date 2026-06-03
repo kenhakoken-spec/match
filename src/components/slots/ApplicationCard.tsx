@@ -7,7 +7,7 @@ import { formatDateTime } from "@/app/_lib/datetime";
 import {
   APPLICATION_STATUS_PILL,
   areaLabel,
-  remainingText,
+  fillProgressText,
 } from "@/app/_lib/slots-ui";
 import type { ApplicationListItem } from "@/app/_lib/api-s2";
 
@@ -62,7 +62,7 @@ export function ApplicationCard({
             : "6名が揃いました。会場が決まり次第お知らせします。"}
         </p>
       ) : status === "applied" ? (
-        <p className="mt-1 font-sans text-[13px] text-ink-500">{remainingText(slot)}</p>
+        <p className="mt-1 font-sans text-[13px] text-ink-500">{fillProgressText(slot)}</p>
       ) : (
         // canceled / 不成立 — 決済不信の防止に「課金なし」を必ず明記。
         <p className="mt-1 font-sans text-[13px] text-state-muted">

@@ -202,11 +202,21 @@ describe("GET /api/matches/[id] — IDOR / 段階 / PII", () => {
     expect(json.match?.status).toBe("pending_venue");
     expect(json.match?.venue).toBeNull(); // notified 前は会場を出さない
     expect(json.match?.members).toHaveLength(6);
-    // members に lineUserId / userId を出さない（displayName/gender のみ）。
+    // 【S12 #7/#4/#14】成立詳細では displayName/gender に加え age/occupation/bio を開示。
+    // **PII最小は維持**: lineUserId/userId/birthdate は出さない。
     for (const m of json.match?.members ?? []) {
       expect(m).not.toHaveProperty("lineUserId");
       expect(m).not.toHaveProperty("userId");
-      expect(Object.keys(m).sort()).toEqual(["displayName", "gender"]);
+      expect(m).not.toHaveProperty("birthdate"); // 生年月日そのものは出さない（age のみ）
+      expect(Object.keys(m).sort()).toEqual([
+        "age",
+        "bio",
+        "displayName",
+        "gender",
+        "occupation",
+      ]);
+      // age は整数 or null。occupation/bio は文字列 or null。
+      expect(m.age === null || Number.isInteger(m.age)).toBe(true);
     }
   });
 

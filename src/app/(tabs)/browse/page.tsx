@@ -87,7 +87,7 @@ export default function BrowsePage() {
             <EmptyState
               glyph="◇"
               title="枠がありません"
-              body="恵比寿 / 池袋 / 銀座で、男女3対3の枠を順次公開します。別の条件でもお試しください。"
+              body="恵比寿 / 池袋 / 銀座で、男女あわせて6名の会を順次公開します。別の条件でもお試しください。"
               data-testid="empty"
             />
           ) : (

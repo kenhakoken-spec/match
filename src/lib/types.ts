@@ -25,7 +25,12 @@ export interface ProfileDTO {
   age: number; // サーバ算出
   areaPref: Area[];
   bio: string | null;
+  /** 【S12 #8】写真URL(後方互換・将来用)。新規はアイコン(iconKey)を使う。 */
   photoUrl: string | null;
+  /** 【S12 #8】選択したプリセットアイコンの識別子（未選択は null）。 */
+  iconKey: string | null;
+  /** 【S12 #6】職業の自由入力（未入力は null）。enum occupation の後継。 */
+  occupationText: string | null;
   ratingAvg: number;
   ratingCount: number;
 }
@@ -68,7 +73,13 @@ export interface SlotDTO {
   id: string;
   datetimeStart: string; // ISO8601
   area: Area;
-  capacityPerGender: number; // 3
+  capacityPerGender: number; // 後方互換: per-gender 上限(既定3)
+  /** 【S12 #10】会の合計定員（既定6）。「あと○名」表示の母数。 */
+  capacityTotal: number;
+  /** 【S12 #10】各性別の最低人数（偏り防止。既定2）。 */
+  minPerGender: number;
+  /** 【S12 #10】各性別の上限人数（既定4）。 */
+  maxPerGender: number;
   filled: { male: number; female: number }; // 現在の確定/応募数
   conditions: SlotConditions;
   status: SlotStatus;
@@ -128,10 +139,25 @@ export interface VenueDTO {
   meetingPlace: string | null;
 }
 
-/** 6名メンバーの最小情報（PII最小: lineUserId 不可、誕生日/連絡先も含めない）。 */
+/**
+ * 6名メンバーの情報（成立した相手にだけ見える＝/matches/[id]・admin詳細）。
+ * 【S12 #7/#4/#14】成立詳細では age（生年月日から算出）・occupation（自由入力優先）・bio を開示する。
+ * **PII最小は維持**: lineUserId/userId/正確な生年月日/連絡先は含めない。displayName は既存通り。
+ * これは「成立した相手にだけ見える」情報であり、一覧/公開プレビューには出さない
+ * （公開プレビューは別途 PublicMemberDTO の匿名サマリを使う）。
+ */
 export interface MatchMemberDTO {
   displayName: string;
   gender: Gender;
+  /** 【S12 #7】年齢（生年月日から算出。算出不能なら null）。 */
+  age: number | null;
+  /**
+   * 【S12 #6/#14】職業表示。自由入力(occupationText)があればそれを、無ければ
+   * enum occupation を日本語化した文字列を入れる。どちらも無ければ null。
+   */
+  occupation: string | null;
+  /** 【S12 #4/#14】ひとこと自己紹介（未入力は null）。成立詳細でのみ開示。 */
+  bio: string | null;
 }
 
 /** ユーザー側 成立詳細（契約§3 MatchDetailDTO）。 */
@@ -272,6 +298,12 @@ export interface PublicSlotDTO {
   datetimeStart: string; // ISO8601
   area: Area;
   capacityPerGender: number;
+  /** 【S12 #10】会の合計定員（既定6）。「あと○名」の母数。 */
+  capacityTotal: number;
+  /** 【S12 #10】各性別の最低人数（既定2）。 */
+  minPerGender: number;
+  /** 【S12 #10】各性別の上限人数（既定4）。 */
+  maxPerGender: number;
   /** 現在の充足数（あと何名で成立かの表示に使う）。 */
   filled: { male: number; female: number };
   conditions: SlotConditions;

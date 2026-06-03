@@ -141,8 +141,11 @@ class MemoryProfilesRepo implements ProfilesRepo {
       existing.birthdate = input.birthdate;
       existing.areaPref = input.areaPref;
       existing.bio = input.bio ?? null;
-      // occupation は指定時のみ更新（未指定は既存値維持＝部分更新の事故防止）。
+      // occupation/occupationText/iconKey は指定時のみ更新（未指定は既存値維持＝部分更新の事故防止）。
       if (input.occupation !== undefined) existing.occupation = input.occupation;
+      if (input.occupationText !== undefined)
+        existing.occupationText = input.occupationText;
+      if (input.iconKey !== undefined) existing.iconKey = input.iconKey;
       existing.updatedAt = now;
       s.profiles.set(input.userId, existing);
       return existing;
@@ -153,9 +156,11 @@ class MemoryProfilesRepo implements ProfilesRepo {
       gender: input.gender,
       birthdate: input.birthdate,
       photoUrl: null,
+      iconKey: input.iconKey ?? null,
       bio: input.bio ?? null,
       areaPref: input.areaPref,
       occupation: input.occupation ?? null,
+      occupationText: input.occupationText ?? null,
       ratingAvg: 0,
       ratingCount: 0,
       attendedCount: 0,
@@ -393,6 +398,9 @@ class MemorySlotsRepo implements SlotsRepo {
       datetimeStart: input.datetimeStart,
       area: input.area,
       capacityPerGender: input.capacityPerGender ?? 3,
+      capacityTotal: input.capacityTotal ?? 6,
+      minPerGender: input.minPerGender ?? 2,
+      maxPerGender: input.maxPerGender ?? 4,
       status: "open",
       minAge: input.minAge ?? null,
       maxAge: input.maxAge ?? null,
@@ -794,9 +802,11 @@ function seed(s: Store): void {
     gender: "male",
     birthdate: new Date(Date.UTC(1994, 4, 15)), // 1994-05-15 → 31歳
     photoUrl: null,
+    iconKey: "fox", // S12 #8: 写真ではなくプリセットアイコン。
     bio: "よろしくお願いします",
     areaPref: ["ebisu", "ginza"],
     occupation: "it",
+    occupationText: "ITエンジニア（スタートアップ）", // S12 #6: 自由入力（成立詳細で開示）。
     ratingAvg: 4.6, // premium 相当の総合平均（バッジ seed と整合）。
     ratingCount: 8,
     attendedCount: 3,
@@ -845,9 +855,11 @@ function seed(s: Store): void {
     gender: "female",
     birthdate: new Date(Date.UTC(1996, 7, 20)), // 1996-08-20 → 29歳
     photoUrl: null,
-    bio: null,
+    iconKey: "cat", // S12 #8
+    bio: "はじめまして。お酒と旅行が好きです。", // S12 #4: 成立詳細で開示。
     areaPref: ["ikebukuro"],
     occupation: "medical",
+    occupationText: "看護師", // S12 #6
     ratingAvg: 0,
     ratingCount: 0,
     attendedCount: 0,
@@ -869,6 +881,9 @@ function seed(s: Store): void {
     datetimeStart: new Date(base + 7 * day),
     area: "ebisu",
     capacityPerGender: 3,
+    capacityTotal: 6,
+    minPerGender: 2,
+    maxPerGender: 4,
     status: "open",
     minAge: null,
     maxAge: null,
@@ -885,6 +900,9 @@ function seed(s: Store): void {
     datetimeStart: new Date(base + 8 * day),
     area: "ikebukuro",
     capacityPerGender: 3,
+    capacityTotal: 6,
+    minPerGender: 2,
+    maxPerGender: 4,
     status: "open",
     minAge: 20,
     maxAge: 29, // 20代限定
@@ -901,6 +919,9 @@ function seed(s: Store): void {
     datetimeStart: new Date(base + 9 * day),
     area: "ginza",
     capacityPerGender: 3,
+    capacityTotal: 6,
+    minPerGender: 2,
+    maxPerGender: 4,
     status: "open",
     minAge: null,
     maxAge: null,
@@ -922,13 +943,15 @@ function seed(s: Store): void {
     gender: Gender;
     birthYear: number;
     occupation: ProfileEntity["occupation"];
+    occupationText: string; // S12 #6: 成立詳細で開示する自由入力。
+    iconKey: string; // S12 #8
   }> = [
-    { id: "seed-m1", line: "Us3male1", name: "S3太郎", gender: "male", birthYear: 1992, occupation: "company_employee" },
-    { id: "seed-m2", line: "Us3male2", name: "S3次郎", gender: "male", birthYear: 1993, occupation: "executive" },
-    { id: "seed-m3", line: "Us3male3", name: "S3三郎", gender: "male", birthYear: 1991, occupation: "finance" },
-    { id: "seed-f1", line: "Us3female1", name: "S3花子", gender: "female", birthYear: 1995, occupation: "creative" },
-    { id: "seed-f2", line: "Us3female2", name: "S3桃子", gender: "female", birthYear: 1996, occupation: "public_servant" },
-    { id: "seed-f3", line: "Us3female3", name: "S3梅子", gender: "female", birthYear: 1997, occupation: "it" },
+    { id: "seed-m1", line: "Us3male1", name: "S3太郎", gender: "male", birthYear: 1992, occupation: "company_employee", occupationText: "メーカー勤務（営業）", iconKey: "bear" },
+    { id: "seed-m2", line: "Us3male2", name: "S3次郎", gender: "male", birthYear: 1993, occupation: "executive", occupationText: "会社経営", iconKey: "panda" },
+    { id: "seed-m3", line: "Us3male3", name: "S3三郎", gender: "male", birthYear: 1991, occupation: "finance", occupationText: "金融（証券）", iconKey: "penguin" },
+    { id: "seed-f1", line: "Us3female1", name: "S3花子", gender: "female", birthYear: 1995, occupation: "creative", occupationText: "デザイナー", iconKey: "leaf" },
+    { id: "seed-f2", line: "Us3female2", name: "S3桃子", gender: "female", birthYear: 1996, occupation: "public_servant", occupationText: "市役所勤務", iconKey: "flower" },
+    { id: "seed-f3", line: "Us3female3", name: "S3梅子", gender: "female", birthYear: 1997, occupation: "it", occupationText: "Webエンジニア", iconKey: "star" },
   ];
   for (const m of members) {
     s.users.set(m.id, {
@@ -946,9 +969,11 @@ function seed(s: Store): void {
       gender: m.gender,
       birthdate: new Date(Date.UTC(m.birthYear, 3, 10)),
       photoUrl: null,
-      bio: null,
+      iconKey: m.iconKey,
+      bio: `${m.name}です。よろしくお願いします。`, // S12 #4: 成立詳細で開示。
       areaPref: ["ebisu", "ikebukuro", "ginza"],
       occupation: m.occupation,
+      occupationText: m.occupationText,
       ratingAvg: 0,
       ratingCount: 0,
       attendedCount: 0,
@@ -984,6 +1009,9 @@ function seed(s: Store): void {
     datetimeStart: new Date(base + 10 * day),
     area: "ebisu",
     capacityPerGender: 3,
+    capacityTotal: 6,
+    minPerGender: 2,
+    maxPerGender: 4,
     status: "open",
     minAge: null,
     maxAge: null,
@@ -1016,6 +1044,9 @@ function seed(s: Store): void {
     datetimeStart: new Date(base + 11 * day),
     area: "ginza",
     capacityPerGender: 3,
+    capacityTotal: 6,
+    minPerGender: 2,
+    maxPerGender: 4,
     status: "filled",
     minAge: null,
     maxAge: null,
@@ -1115,6 +1146,9 @@ function seed(s: Store): void {
       datetimeStart: nextWeekdayAtJst(WED, 19, 30),
       area: "ebisu",
       capacityPerGender: 3,
+      capacityTotal: 6,
+      minPerGender: 2,
+      maxPerGender: 4,
       status: "open",
       minAge: null,
       maxAge: null,
@@ -1129,6 +1163,9 @@ function seed(s: Store): void {
       datetimeStart: nextWeekdayAtJst(FRI, 19, 30),
       area: "ikebukuro",
       capacityPerGender: 3,
+      capacityTotal: 6,
+      minPerGender: 2,
+      maxPerGender: 4,
       status: "open",
       minAge: null,
       maxAge: null,
@@ -1143,6 +1180,9 @@ function seed(s: Store): void {
       datetimeStart: nextWeekdayAtJst(SAT, 19, 30),
       area: "ginza",
       capacityPerGender: 3,
+      capacityTotal: 6,
+      minPerGender: 2,
+      maxPerGender: 4,
       status: "open",
       minAge: null,
       maxAge: null,
@@ -1158,6 +1198,9 @@ function seed(s: Store): void {
       datetimeStart: nextWeekdayAtJst(FRI, 19, 30),
       area: "ebisu",
       capacityPerGender: 3,
+      capacityTotal: 6,
+      minPerGender: 2,
+      maxPerGender: 4,
       status: "open",
       minAge: 20,
       maxAge: 29,
@@ -1173,6 +1216,9 @@ function seed(s: Store): void {
       datetimeStart: nextWeekdayAtJst(SAT, 19, 30),
       area: "ebisu",
       capacityPerGender: 3,
+      capacityTotal: 6,
+      minPerGender: 2,
+      maxPerGender: 4,
       status: "open",
       minAge: null,
       maxAge: null,

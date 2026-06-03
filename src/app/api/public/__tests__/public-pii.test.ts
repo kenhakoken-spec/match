@@ -68,9 +68,11 @@ describe("toPublicMemberDTO — PII 出口関門", () => {
     gender: "female",
     birthdate: new Date(Date.UTC(1988, 2, 22)), // 1988-03-22
     photoUrl: "https://cdn.example.com/private/hanako-face.png",
+    iconKey: "cat",
     bio: "私の電話は 090-1234-5678 です",
     areaPref: ["ebisu"],
     occupation: "creative",
+    occupationText: "デザイナー（自由入力・公開には出ない）",
     ratingAvg: 4.2,
     ratingCount: 5,
     attendedCount: 7,
@@ -89,6 +91,7 @@ describe("toPublicMemberDTO — PII 出口関門", () => {
     "03-22", // 正確な月日
     "u_pii", // 内部 userId
     "p_pii", // 内部 profile id
+    "自由入力", // S12 #6: occupationText は公開プレビューに出さない（成立詳細のみ）
   ];
 
   it("安全なキーだけを公開し、それ以外を一切含まない", () => {
@@ -126,6 +129,9 @@ describe("toPublicSlotDTO — 枠属性のみ（個人特定情報なし）", ()
     datetimeStart: new Date("2026-09-10T10:30:00Z"),
     area: "ebisu",
     capacityPerGender: 3,
+    capacityTotal: 6,
+    minPerGender: 2,
+    maxPerGender: 4,
     status: "open",
     minAge: null,
     maxAge: null,

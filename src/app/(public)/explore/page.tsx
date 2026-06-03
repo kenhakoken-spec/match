@@ -62,7 +62,7 @@ export default function ExplorePage() {
             <EmptyState
               glyph="◇"
               title="公開中の会はありません"
-              body="恵比寿 / 池袋 / 銀座で、男女3対3の会を順次公開します。"
+              body="恵比寿 / 池袋 / 銀座で、男女あわせて6名の会を順次公開します。"
               data-testid="empty"
             />
           ) : (

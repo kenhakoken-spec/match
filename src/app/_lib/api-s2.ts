@@ -29,7 +29,13 @@ export interface SlotDTO {
   id: string;
   datetimeStart: string; // ISO8601
   area: Area;
-  capacityPerGender: number;
+  capacityPerGender: number; // 後方互換: per-gender 上限(既定3)
+  /** 【S12 #10】会の合計定員(既定6)。「あと○名で成立」の母数。 */
+  capacityTotal: number;
+  /** 【S12 #10】各性別の最低人数(偏り防止。既定2)。 */
+  minPerGender: number;
+  /** 【S12 #10】各性別の上限人数(既定4)。 */
+  maxPerGender: number;
   filled: { male: number; female: number };
   conditions: SlotConditions;
   status: SlotStatus;
@@ -113,6 +119,9 @@ function fbSlots(): SlotDTO[] {
       datetimeStart: atJstTime(4, 19, 30),
       area: "ebisu",
       capacityPerGender: 3,
+      capacityTotal: 6,
+      minPerGender: 2,
+      maxPerGender: 4,
       filled: { male: 1, female: 2 },
       conditions: { minAge: null, maxAge: null, requiresBadge: null },
       status: "open",
@@ -123,6 +132,9 @@ function fbSlots(): SlotDTO[] {
       datetimeStart: atJstTime(11, 20, 0),
       area: "ikebukuro",
       capacityPerGender: 3,
+      capacityTotal: 6,
+      minPerGender: 2,
+      maxPerGender: 4,
       filled: { male: 2, female: 2 },
       conditions: { minAge: 20, maxAge: 29, requiresBadge: null },
       status: "open",
@@ -133,6 +145,9 @@ function fbSlots(): SlotDTO[] {
       datetimeStart: atJstTime(5, 18, 0),
       area: "ginza",
       capacityPerGender: 3,
+      capacityTotal: 6,
+      minPerGender: 2,
+      maxPerGender: 4,
       filled: { male: 2, female: 3 },
       conditions: { minAge: null, maxAge: null, requiresBadge: "premium" },
       status: "open",
@@ -143,6 +158,9 @@ function fbSlots(): SlotDTO[] {
       datetimeStart: atJstTime(18, 19, 0),
       area: "ebisu",
       capacityPerGender: 3,
+      capacityTotal: 6,
+      minPerGender: 2,
+      maxPerGender: 4,
       filled: { male: 1, female: 1 },
       conditions: { minAge: null, maxAge: null, requiresBadge: null },
       status: "open",
@@ -191,6 +209,9 @@ function fbApplications(): ApplicationListItem[] {
         datetimeStart: atJstTime(4, 19, 30),
         area: "ebisu",
         capacityPerGender: 3,
+        capacityTotal: 6,
+        minPerGender: 2,
+        maxPerGender: 4,
         filled: { male: 3, female: 3 },
         conditions: { minAge: null, maxAge: null, requiresBadge: null },
         status: "filled",
@@ -210,6 +231,9 @@ function fbApplications(): ApplicationListItem[] {
         datetimeStart: atJstTime(5, 18, 0),
         area: "ginza",
         capacityPerGender: 3,
+        capacityTotal: 6,
+        minPerGender: 2,
+        maxPerGender: 4,
         filled: { male: 3, female: 3 },
         conditions: { minAge: null, maxAge: null, requiresBadge: "premium" },
         status: "confirmed",
@@ -224,6 +248,9 @@ function fbApplications(): ApplicationListItem[] {
         datetimeStart: atJstTime(2, 19, 0),
         area: "ebisu",
         capacityPerGender: 3,
+        capacityTotal: 6,
+        minPerGender: 2,
+        maxPerGender: 4,
         filled: { male: 1, female: 0 },
         conditions: { minAge: null, maxAge: null, requiresBadge: null },
         status: "canceled",

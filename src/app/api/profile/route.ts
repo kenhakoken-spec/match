@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 import { handle, jsonOk, jsonError } from "@/lib/http";
 import { requireUser } from "@/lib/auth/guard";
 import { profileSchema } from "@/lib/validation";
-import { isAdult } from "@/lib/domain";
+import { isAdult, sanitizeOccupationText } from "@/lib/domain";
 import { getRepo } from "@/lib/repo";
 import { toProfileDTO } from "@/lib/serializers";
 
@@ -24,12 +24,19 @@ export async function PUT(req: NextRequest) {
 
     const repo = getRepo();
     // userId は **セッション由来**。body/URL の userId は受け取らない(IDOR防止)。
+    // S12 #6/#8: 職業自由入力(サニタイズ)・アイコン識別子を保存。未指定は既存値維持
+    // (upsert 側が undefined を部分更新としてスキップする)。
     const profile = await repo.profiles.upsertByUserId({
       userId: authed.id,
       gender: input.gender,
       birthdate,
       areaPref: input.areaPref,
       bio: input.bio ?? null,
+      occupationText:
+        input.occupationText !== undefined
+          ? sanitizeOccupationText(input.occupationText)
+          : undefined,
+      iconKey: input.iconKey !== undefined ? input.iconKey : undefined,
     });
 
     const dto = { ...toProfileDTO(profile), displayName: input.displayName };

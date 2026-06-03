@@ -10,7 +10,7 @@ import { FillDots } from "./FillDots";
 import { SlotConditionChips } from "./SlotConditionChips";
 import { AreaChip, SlotDateBlock } from "./SlotDateBlock";
 import { formatDateShort, formatTime } from "@/app/_lib/datetime";
-import { areaLabel, remainingText, yen, type ListHint } from "@/app/_lib/slots-ui";
+import { areaLabel, fillProgressText, totalRemaining, yen, type ListHint } from "@/app/_lib/slots-ui";
 import type { SlotDTO } from "@/app/_lib/api-s2";
 import type { Gender } from "@/app/_lib/types";
 
@@ -24,8 +24,8 @@ export function SlotCard({
   viewerGender?: Gender | null;
 }) {
   const ineligible = hint?.ineligible ?? false;
-  const remain = remainingText(slot);
-  const full = remain === "満員";
+  // S12 #10: 合計6名で柔軟(2:4 も成立)。残数は合計ベース「あと○名で成立」を主表示。
+  const full = totalRemaining(slot) === 0;
 
   return (
     <Link
@@ -56,7 +56,7 @@ export function SlotCard({
           full ? "text-state-muted" : "text-ink-700",
         ].join(" ")}
       >
-        {remain}
+        {fillProgressText(slot)}
       </p>
 
       <div className="mt-3 flex items-center justify-between gap-2 border-t border-line-100 pt-3 md:mt-auto">

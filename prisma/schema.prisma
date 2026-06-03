@@ -246,18 +246,31 @@ model Profile {
   /// 18+判定(本人認証で確認)と 20代限定イベント判定の双方に使う。
   birthdate DateTime
 
-  /// プロフィール写真URL(Vercel Blob・アクセス制限)。実体はBlob、ここは参照のみ。
+  /// 【S12 #8】プロフィール写真URL(Vercel Blob)。**写真登録は廃止**(殿FB#8)。
+  /// 後方互換・将来用途のため列は残すが、新規プロフィールはアイコン(iconKey)を主に使う。
+  /// 顔写真詐欺の土俵に乗らない方針(strategy §2)。
   photoUrl String?
+  /// 【S12 #8】プリセットアイコンの識別子(例 "fox"/"leaf")。写真の代わりに選ぶ。
+  /// 実体画像は持たず、frontend が id から描画する。一覧/プレビュー/成立詳細で表示可。
+  /// 有効な id は src/lib/icons.ts の ICON_IDS に限定(アプリ層で検証)。任意(未選択は null)。
+  iconKey  String?
   /// 自己紹介。短文。サニタイズ前提(XSS/制御文字対策はアプリ層)。
+  /// 【S12 #4】一覧/公開には出さず、**成立詳細(matched相手)にのみ開示**する。
   bio      String? @db.VarChar(500)
 
   /// 希望エリア(複数可)。枠レコメンド/フィルタに使う。
   areaPref Area[]
 
-  /// 職種(S8 spec 要望1)。プレビューで匿名サマリとして表示する。任意。
+  /// 職種(S8 spec 要望1)。enum 版。プレビューで匿名サマリとして表示する。任意。
+  /// 【S12 #6】新規は occupationText(自由入力)を主に使う。enum は後方互換で残す。
   /// マッチングロジックには使わない(表示のみ)。氏名/写真と違い PII 性が低いため
   /// 未認証プレビュー(PublicMemberDTO)にも出してよい。
   occupation Occupation?
+  /// 【S12 #6】職業の自由入力(フリーテキスト)。enum を廃して自由入力にする要望。
+  /// サニタイズ前提・最大40字程度(アプリ層 zod で検証)。任意(未入力は null)。
+  /// 自由入力は識別子になりうるため **成立詳細(matched相手)にのみ開示**し、
+  /// 未認証プレビューには出さない(プレビューは enum occupation の匿名サマリのみ)。
+  occupationText String? @db.VarChar(40)
 
   // --- 評価集計(Rating から導出してキャッシュ。正本は Rating 群) ---
   /// 総合平均評価(0.0〜5.0)。S8では3軸の総合(overall)を入れる。Rating 追加時に再計算。
@@ -328,15 +341,27 @@ model IdentityVerification {
   @@map("identity_verifications")
 }
 
-/// 枠(Slot) = 「日時 × エリア」。運営(admin)が用意。男女定員(既定3)。
+/// 枠(Slot) = 「日時 × エリア」。運営(admin)が用意。
+/// 【S12 #10】定員は厳密3:3固定でなく **合計6人で柔軟**(2:4〜4:2)を許容する。
+///   - capacityTotal   : 会の合計定員(既定6)。成立は合計がここに達したとき。
+///   - minPerGender    : 各性別の最低人数(既定2)。極端な偏り(6:0/5:1)を防ぐ。
+///   - maxPerGender    : 各性別の上限(既定4)。過充足の上限。
+///   従来の capacityPerGender(既定3)は **後方互換の per-gender 上限** として残す
+///   (厳密3:3運用の枠や既存テストはこの値を使う)。柔軟成立は capacityTotal/min/max で判定。
 /// 参加条件(限定イベント): minAge/maxAge(例 20代限定=25〜29 等), requiresBadge。
 model Slot {
   id                String     @id @default(cuid())
   /// 開催日時(開始)。UTC保存・JST表示(アプリ層)。
   datetimeStart     DateTime
   area              Area
-  /// 性別ごとの定員。MVPは3固定だが将来調整の余地として列に持つ。
+  /// 性別ごとの定員(後方互換)。MVPは3。柔軟成立では maxPerGender を上限に使う。
   capacityPerGender Int        @default(3)
+  /// 【S12 #10】会の合計定員。成立はこの人数に達し かつ 各性別 min〜max のとき。
+  capacityTotal     Int        @default(6)
+  /// 【S12 #10】各性別の最低人数(偏り防止)。
+  minPerGender      Int        @default(2)
+  /// 【S12 #10】各性別の上限人数(過充足防止)。
+  maxPerGender      Int        @default(4)
   status            SlotStatus @default(open)
 
   // --- 参加条件(限定イベント。null=制限なし) ---

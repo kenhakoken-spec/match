@@ -11,7 +11,7 @@ import { CheckboxRow } from "@/components/ui/Consent";
 import { PaymentNotice } from "./PaymentNotice";
 import { SlotConditionChips } from "./SlotConditionChips";
 import { applyToSlot } from "@/app/_lib/api-s2";
-import { reasonSpec, areaLabel } from "@/app/_lib/slots-ui";
+import { reasonSpec, areaLabel, capacityText } from "@/app/_lib/slots-ui";
 import { formatDateTime } from "@/app/_lib/datetime";
 import type { EligibilityReasonCode, SlotDetailDTO } from "@/app/_lib/api-s2";
 import type { Gender } from "@/app/_lib/types";
@@ -117,7 +117,7 @@ export function ApplyConfirmSheet({ slot, gender, firstTimeFree, onClose, onAppl
           <p className="font-sans text-[15px] text-ink-900">
             {areaLabel(slot.area)} ・ {formatDateTime(slot.datetimeStart)}
           </p>
-          <p className="mt-1 font-sans text-[13px] text-ink-500">3 対 3（男女各3名）</p>
+          <p className="mt-1 font-sans text-[13px] text-ink-500">{capacityText(slot)}</p>
           <div className="mt-2">
             <SlotConditionChips conditions={slot.conditions} />
           </div>

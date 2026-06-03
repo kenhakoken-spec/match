@@ -4,7 +4,7 @@
 // birthdate は ProfileDTO に含めてよいが age を必ず併記(契約§1)。
 // =============================================================================
 
-import { calcAge, canApply } from "@/lib/domain";
+import { calcAge, canApply, resolveOccupationDisplay } from "@/lib/domain";
 import type {
   ProfileEntity,
   IdentityEntity,
@@ -49,6 +49,9 @@ export function toProfileDTO(p: ProfileEntity, now: Date = new Date()): ProfileD
     areaPref: p.areaPref,
     bio: p.bio,
     photoUrl: p.photoUrl,
+    // S12 #8: アイコン識別子。#6: 職業の自由入力。
+    iconKey: p.iconKey,
+    occupationText: p.occupationText,
     ratingAvg: p.ratingAvg,
     ratingCount: p.ratingCount,
   };
@@ -112,6 +115,10 @@ export function toSlotDTO(slot: SlotEntity, counts: GenderCounts): SlotDTO {
     datetimeStart: slot.datetimeStart.toISOString(),
     area: slot.area,
     capacityPerGender: slot.capacityPerGender,
+    // S12 #10: 柔軟定員（合計/各性別min/max）。
+    capacityTotal: slot.capacityTotal,
+    minPerGender: slot.minPerGender,
+    maxPerGender: slot.maxPerGender,
     filled: { male: counts.male, female: counts.female },
     conditions: {
       minAge: slot.minAge,
@@ -164,11 +171,32 @@ export function toVenueDTO(m: MatchEntity): VenueDTO | null {
   };
 }
 
-/** メンバー行 → 最小 DTO（PII最小: lineUserId 不可、誕生日/連絡先も含めない）。 */
-export function toMatchMemberDTO(row: MatchMemberRow): MatchMemberDTO {
+/**
+ * メンバー行 → 成立詳細メンバー DTO（成立した相手にだけ見える情報）。
+ * 【S12 #7/#4/#14】age(生年月日から算出)・occupation(自由入力優先)・bio を開示する。
+ * **PII最小は維持**: lineUserId/userId/正確な生年月日/連絡先は出さない
+ *   - 生年月日は age(整数)に変換してから返す（誕生日そのものは出さない）。
+ *   - 算出不能(birthdate=null/NaN)な age は null。
+ */
+export function toMatchMemberDTO(
+  row: MatchMemberRow,
+  now: Date = new Date()
+): MatchMemberDTO {
+  let age: number | null = null;
+  if (row.birthdate) {
+    const a = calcAge(row.birthdate, now);
+    age = Number.isFinite(a) && !Number.isNaN(a) ? a : null;
+  }
   return {
     displayName: row.displayName ?? "",
     gender: row.gender,
+    age,
+    // 自由入力(occupationText)優先・無ければ enum を日本語化（後方互換）。
+    occupation: resolveOccupationDisplay({
+      occupationText: row.occupationText,
+      occupation: row.occupation,
+    }),
+    bio: row.bio,
   };
 }
 
@@ -188,7 +216,7 @@ export function toMatchDetailDTO(
     status,
     // notified 前は会場を出さない（段階制御）。
     venue: status === "notified" ? toVenueDTO(m) : null,
-    members: members.map(toMatchMemberDTO),
+    members: members.map((m) => toMatchMemberDTO(m)),
   };
 }
 
@@ -239,7 +267,7 @@ export function toAdminMatchDetailDTO(
     matchedAt: m.matchedAt.toISOString(),
     filled: { male: counts.male, female: counts.female },
     venue: toVenueDTO(m),
-    members: members.map(toMatchMemberDTO),
+    members: members.map((m) => toMatchMemberDTO(m)),
   };
 }
 
@@ -293,6 +321,10 @@ export function toPublicSlotDTO(slot: SlotEntity, counts: GenderCounts): PublicS
     datetimeStart: slot.datetimeStart.toISOString(),
     area: slot.area,
     capacityPerGender: slot.capacityPerGender,
+    // S12 #10: 柔軟定員（合計/各性別min/max）。「あと○名」表示の母数。
+    capacityTotal: slot.capacityTotal,
+    minPerGender: slot.minPerGender,
+    maxPerGender: slot.maxPerGender,
     filled: { male: counts.male, female: counts.female },
     conditions: {
       minAge: slot.minAge,

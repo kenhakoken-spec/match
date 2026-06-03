@@ -40,6 +40,100 @@ export function isSlotFull(
   return male >= capacityPerGender && female >= capacityPerGender;
 }
 
+// =============================================================================
+// S12 #10 — 定員の柔軟化(合計6人で 2:4〜4:2 を許容)。
+//   殿FB#10/strategy §4: 男女厳密3:3固定でなく、合計6人で柔軟に成立させたい。
+//   厳密3:3固定の枠は引き続き isSlotFull(per-gender cap) を使う。柔軟枠はこちらを使う。
+// =============================================================================
+
+/** 柔軟定員の構成。Slot の capacityTotal/minPerGender/maxPerGender に対応。 */
+export interface FlexCapacity {
+  /** 会の合計定員(既定6)。 */
+  capacityTotal: number;
+  /** 各性別の最低人数(偏り防止。既定2)。 */
+  minPerGender: number;
+  /** 各性別の上限人数(過充足防止。既定4)。 */
+  maxPerGender: number;
+}
+
+/** S12 #10 の既定: 合計6人・各性別 2〜4。3:3 / 2:4 / 4:2 を許容、6:0/5:1 等は不可。 */
+export const DEFAULT_FLEX_CAPACITY: FlexCapacity = {
+  capacityTotal: 6,
+  minPerGender: 2,
+  maxPerGender: 4,
+};
+
+/** 有効応募(applied/accepted)を性別ごとに数える(canceled は除外)。 */
+function countActive(
+  applications: { gender: Gender; status: "applied" | "accepted" | "canceled" }[]
+): { male: number; female: number } {
+  let male = 0;
+  let female = 0;
+  for (const a of applications) {
+    if (a.status !== "applied" && a.status !== "accepted") continue;
+    if (a.gender === "male") male += 1;
+    else if (a.gender === "female") female += 1;
+  }
+  return { male, female };
+}
+
+/**
+ * その性別をあと1名 **受け入れてよいか**(柔軟定員の応募ゲート)。
+ *   - 過充足防止: 受け入れ後にその性別が maxPerGender を超えない。
+ *   - 合計超過防止: 受け入れ後に合計が capacityTotal を超えない。
+ * minPerGender は「成立」の条件であって応募の可否には使わない(最初の1人を弾かないため)。
+ * 不正な定員値(非有限/<=0、min>max、min*2>total)は防御的に false(=受け入れ不可)。
+ */
+export function canAcceptGenderFlex(
+  current: { male: number; female: number },
+  gender: Gender,
+  cap: FlexCapacity = DEFAULT_FLEX_CAPACITY
+): boolean {
+  if (!isValidFlexCapacity(cap)) return false;
+  const male = current.male + (gender === "male" ? 1 : 0);
+  const female = current.female + (gender === "female" ? 1 : 0);
+  const mine = gender === "male" ? male : female;
+  if (mine > cap.maxPerGender) return false;
+  if (male + female > cap.capacityTotal) return false;
+  return true;
+}
+
+/**
+ * 柔軟定員での **成立判定**。
+ *   合計が capacityTotal に達し、かつ 各性別が [minPerGender, maxPerGender] に収まる。
+ *   例(既定 6/2/4): 3:3=○ / 2:4=○ / 4:2=○ / 5:1=× / 6:0=× / 1:5=×。
+ *   applied/accepted のみ数える(canceled 除外)。不正な定員値は false。
+ */
+export function isSlotFullFlex(
+  applications: { gender: Gender; status: "applied" | "accepted" | "canceled" }[],
+  cap: FlexCapacity = DEFAULT_FLEX_CAPACITY
+): boolean {
+  if (!isValidFlexCapacity(cap)) return false;
+  const { male, female } = countActive(applications);
+  if (male + female !== cap.capacityTotal) return false;
+  if (male < cap.minPerGender || male > cap.maxPerGender) return false;
+  if (female < cap.minPerGender || female > cap.maxPerGender) return false;
+  return true;
+}
+
+/** 柔軟定員の整合チェック(防御)。min<=max、min*2<=total<=max*2、すべて有限の正数。 */
+export function isValidFlexCapacity(cap: FlexCapacity): boolean {
+  const { capacityTotal, minPerGender, maxPerGender } = cap;
+  if (
+    !Number.isFinite(capacityTotal) ||
+    !Number.isFinite(minPerGender) ||
+    !Number.isFinite(maxPerGender)
+  ) {
+    return false;
+  }
+  if (capacityTotal <= 0 || minPerGender < 0 || maxPerGender <= 0) return false;
+  if (minPerGender > maxPerGender) return false;
+  // 2性別なので min*2 <= total <= max*2 でなければ成立解が存在しない。
+  if (minPerGender * 2 > capacityTotal) return false;
+  if (maxPerGender * 2 < capacityTotal) return false;
+  return true;
+}
+
 /** エリアコード → 日本語表示（通知文面用）。 */
 const AREA_LABEL: Record<Area, string> = {
   ebisu: "恵比寿",

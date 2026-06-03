@@ -99,8 +99,12 @@ class PrismaProfilesRepo implements ProfilesRepo {
         birthdate: input.birthdate,
         areaPref: input.areaPref,
         bio: input.bio ?? null,
-        // S8: occupation は任意。未指定は null（新規）。
+        // S8: occupation(enum) は任意。S12 #6: occupationText(自由入力)・#8: iconKey も任意。
         ...(input.occupation !== undefined ? { occupation: input.occupation } : {}),
+        ...(input.occupationText !== undefined
+          ? { occupationText: input.occupationText }
+          : {}),
+        ...(input.iconKey !== undefined ? { iconKey: input.iconKey } : {}),
       },
       update: {
         gender: input.gender,
@@ -109,6 +113,10 @@ class PrismaProfilesRepo implements ProfilesRepo {
         bio: input.bio ?? null,
         // 未指定は既存値維持（キーごと省く）。
         ...(input.occupation !== undefined ? { occupation: input.occupation } : {}),
+        ...(input.occupationText !== undefined
+          ? { occupationText: input.occupationText }
+          : {}),
+        ...(input.iconKey !== undefined ? { iconKey: input.iconKey } : {}),
       },
     })) as ProfileEntity;
   }
@@ -300,6 +308,10 @@ class PrismaSlotsRepo implements SlotsRepo {
         datetimeStart: input.datetimeStart,
         area: input.area,
         capacityPerGender: input.capacityPerGender ?? 3,
+        // S12 #10: 柔軟定員（既定は合計6・各性別2〜4）。
+        capacityTotal: input.capacityTotal ?? 6,
+        minPerGender: input.minPerGender ?? 2,
+        maxPerGender: input.maxPerGender ?? 4,
         minAge: input.minAge ?? null,
         maxAge: input.maxAge ?? null,
         requiresBadge: input.requiresBadge ?? false,

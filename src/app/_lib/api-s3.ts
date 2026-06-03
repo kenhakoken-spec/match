@@ -31,11 +31,19 @@ export interface VenueDTO {
   meetingPlace: string | null;
 }
 
-// Minimal member info (PII minimal): displayName + gender ONLY. Never age, full
-// name or lineUserId — admin and user DTOs both use this shape (serializers.ts).
+// Member info shown to MATCHED PARTNERS ONLY (/matches/[id] + admin detail).
+// 【S12 #7/#4/#14】成立詳細では age(生年月日から算出)・occupation(自由入力優先)・bio を開示。
+// PII最小は維持: lineUserId/userId/正確な生年月日/連絡先は出さない(serializers.ts)。
+// 一覧/公開プレビューには出さない(従来通り)。src/lib/types.ts §S3 と byte-identical。
 export interface MatchMemberDTO {
   displayName: string;
   gender: Gender;
+  /** 【S12 #7】年齢(生年月日から算出。算出不能なら null)。 */
+  age: number | null;
+  /** 【S12 #6/#14】職業表示(自由入力優先・無ければ enum 日本語化・どちらも無ければ null)。 */
+  occupation: string | null;
+  /** 【S12 #4/#14】ひとこと自己紹介(未入力は null)。成立詳細でのみ開示。 */
+  bio: string | null;
 }
 
 // User-facing match detail (U-08). venue present ONLY when notified; members are
@@ -68,7 +76,7 @@ export interface AdminMatchSummaryDTO {
   venue: VenueDTO | null;
 }
 
-// Admin detail (A-05). Same minimal members (NO age — serializers use MatchMemberDTO).
+// Admin detail (A-05). Members carry age/occupation/bio too (S12 #14: admin も確認可)。
 export interface AdminMatchDetailDTO {
   id: string;
   slotId: string;
@@ -107,14 +115,16 @@ async function postJson<T>(path: string, body?: unknown): Promise<T> {
 }
 
 // ---- FALLBACK dummy data (contract-shaped). Delete when relying on live backend. ----
-// Members are displayName + gender ONLY (mirrors the PII-minimal serializer).
+// Members: 成立詳細で開示する displayName + gender + age + occupation + bio
+// (PII最小: 正確な生年月日/lineUserId は無い)。S12 #4/#7/#14。
+// bio が null のメンバーを混ぜて「未入力でも崩れない」レイアウトも確認できるようにする。
 const FB_MEMBERS: MatchMemberDTO[] = [
-  { displayName: "ハル", gender: "male" },
-  { displayName: "ミナ", gender: "female" },
-  { displayName: "ソウ", gender: "male" },
-  { displayName: "リカ", gender: "female" },
-  { displayName: "ケン", gender: "male" },
-  { displayName: "アヤ", gender: "female" },
+  { displayName: "ハル", gender: "male", age: 31, occupation: "IT・エンジニア", bio: "週末は自転車で遠出します。お酒は弱めですがゆっくり話せたら。" },
+  { displayName: "ミナ", gender: "female", age: 28, occupation: "看護師", bio: "落ち着いたお店が好きです。映画と珈琲の話ができたら嬉しいです。" },
+  { displayName: "ソウ", gender: "male", age: 34, occupation: "金融", bio: null },
+  { displayName: "リカ", gender: "female", age: 26, occupation: "クリエイティブ", bio: "美術館巡りが趣味です。はじめましてでも気楽にいきましょう。" },
+  { displayName: "ケン", gender: "male", age: 29, occupation: "会社員", bio: "最近キャンプを始めました。おすすめの居酒屋を探しています。" },
+  { displayName: "アヤ", gender: "female", age: 30, occupation: "公務員", bio: null },
 ];
 
 const FB_VENUE: VenueDTO = {
@@ -169,7 +179,7 @@ function fbAdminMatches(): AdminMatchSummaryDTO[] {
   ];
 }
 
-// Admin detail fallback. Admin always sees the full roster (displayName/gender).
+// Admin detail fallback. Admin always sees the full roster (incl. age/職業/bio for #14).
 function fallbackAdminMatchDetail(id: string): AdminMatchDetailDTO {
   const meta = fbAdminMatches().find((m) => m.id === id);
   const slot = meta

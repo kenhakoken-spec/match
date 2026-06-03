@@ -241,7 +241,7 @@ function GenderStep({
       </div>
 
       <p className="mt-3 font-sans text-xs leading-relaxed text-ink-500">
-        ※ 男女3対3で会うため、性別をうかがいます。後から変更できます。
+        ※ 男女のバランスを保つため、性別をうかがいます。プロフィール登録では重ねて聞きません。後から変更できます。
       </p>
     </>
   );
