@@ -9,6 +9,7 @@ import { verifyLineIdToken } from "@/lib/auth/line-mock";
 import { setSessionCookie } from "@/lib/auth/session";
 import { getRepo } from "@/lib/repo";
 import { toMeUser } from "@/lib/serializers";
+import { isAdminLineUserId } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +29,15 @@ export async function POST(req: NextRequest) {
     const user = await repo.users.upsertByLineUserId({
       lineUserId: verified.lineUserId,
       displayName: verified.displayName ?? undefined,
-      // role はここで付与しない(常に既定user。admin昇格はseed/DB直のみ)。
+      // role はDBでは昇格させない(権限昇格防止)。admin はenv許可リストで判定する。
     });
 
-    setSessionCookie({ sub: user.id, role: user.role });
+    // S12 #17: ADMIN_LINE_USER_IDS に含まれる運営は admin セッションにする。
+    // DB role は user のまま・許可リスト外は絶対 admin にならない(フェイルクローズ)。
+    const sessionRole =
+      user.role === "admin" || isAdminLineUserId(verified.lineUserId) ? "admin" : user.role;
+
+    setSessionCookie({ sub: user.id, role: sessionRole });
     // lineUserId はレスポンスに出さない(toMeUser が保証)。
     return jsonOk({ user: toMeUser(user) });
   });

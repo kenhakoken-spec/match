@@ -95,6 +95,20 @@ export function aiTriggerToken(): string | null {
   return "dev-ai-trigger-token";
 }
 
+/**
+ * S12 #17: 運営(admin)の LINE userId 許可リスト。`ADMIN_LINE_USER_IDS`（カンマ区切り）。
+ * LINEログイン時、検証済み lineUserId がこの一覧に含まれれば role=admin でセッション発行する。
+ * - DB の role は昇格させない（権限昇格防止）。許可リストに基づくセッションロールのみ。
+ * - 許可リスト外は絶対に admin にならない（フェイルクローズ）。
+ * - 殿の lineUserId を本番 env に入れることで、運営として admin 画面に入れる。
+ */
+export function isAdminLineUserId(lineUserId: string): boolean {
+  const raw = process.env.ADMIN_LINE_USER_IDS ?? "";
+  if (!raw.trim() || !lineUserId) return false;
+  const ids = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return ids.includes(lineUserId);
+}
+
 // =============================================================================
 // RELEASE_MODE — リリース前の集客フェーズと本稼働を切り替える全体フラグ
 //   (01_s8_spec.md 要望3)。
